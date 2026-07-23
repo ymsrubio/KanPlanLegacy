@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # You can name this service whatever you want (e.g., db, my-database)
+  learning-postgres:
+    # 1. The Image: This tells Docker which blueprint to download
+    image: postgres:latest
+    
+    # 2. Environment Variables: This injects your .env secrets into the container
+    environment:
+      POSTGRES_PASSWORD: ${MY_SECRET_PASSWORD}
+      POSTGRES_USER: ${MY_SECRET_USER}
+      POSTGRES_DB: ${MY_SECRET_DATABASE}
+      
+    # 3. Ports: "HostPort:ContainerPort" - Connects your computer's port to the container's port
+    ports:
+      - "5432:5432"
+      
+    # 4. Volumes: "LocalPath:ContainerPath" - Maps a folder on your computer to where the database saves files inside the container
+    volumes:
+      - ./postgres-data:/var/lib/postgresql
