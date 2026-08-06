@@ -6,16 +6,7 @@ node_modules/
 # Agent & AI Tooling (local only)
 .agents/
 .scratch/
-.wrangler.env
-typing.sql
-postgres-data/
-node_modules/
-
-# Agent & AI Tooling (local only)
-.agents/
-.scratch/
 .wrangler/
 AGENTS.md
 skills-lock.json
 docs/agents/
-/
