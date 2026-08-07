@@ -13,7 +13,23 @@ export default function TaskCard({ task, index }) {
     return { label: `📥 Priority: ${priorityScore}`, bg: '#f1f5f9', color: '#334155' };
   };
 
+  const formatSchedule = () => {
+    if (!task.schedule_start) return null;
+    const startDate = new Date(task.schedule_start);
+    const startHour = startDate.getUTCHours() || startDate.getHours();
+    const startLabel = `${startHour > 12 ? startHour - 12 : startHour || 12}:00 ${startHour >= 12 ? 'PM' : 'AM'}`;
+
+    if (!task.schedule_end) return `⏱️ ${startLabel}`;
+
+    const endDate = new Date(task.schedule_end);
+    const endHour = endDate.getUTCHours() || endDate.getHours();
+    const endLabel = `${endHour > 12 ? endHour - 12 : endHour || 12}:00 ${endHour >= 12 ? 'PM' : 'AM'}`;
+
+    return `⏱️ ${startLabel} - ${endLabel}`;
+  };
+
   const badge = getBadge();
+  const scheduleTimeLabel = formatSchedule();
 
   return (
     <Draggable draggableId={String(task.id)} index={index}>
@@ -56,9 +72,9 @@ export default function TaskCard({ task, index }) {
             >
               {badge.label}
             </span>
-            {task.schedule_start && (
-              <span style={{ fontSize: '0.75em', color: '#ff4f00', fontWeight: '600' }}>
-                ⏱️ Scheduled
+            {scheduleTimeLabel && (
+              <span style={{ fontSize: '0.75em', color: '#ff4f00', fontWeight: '700', background: '#fff1f2', padding: '2px 6px', borderRadius: '6px', border: '1px solid #fecdd3' }}>
+                {scheduleTimeLabel}
               </span>
             )}
           </div>

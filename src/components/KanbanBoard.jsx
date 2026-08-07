@@ -4,6 +4,7 @@ import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard.jsx';
 import Toast from './Toast.jsx';
 import AddTaskModal from './AddTaskModal.jsx';
+import ScheduleModal from './ScheduleModal.jsx';
 
 export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
   const [localColumns, setLocalColumns] = useState([
@@ -18,6 +19,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
   const [alert, setAlert] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [schedulingTask, setSchedulingTask] = useState(null);
   const [editingColId, setEditingColId] = useState(null);
   const [editWipLimit, setEditWipLimit] = useState('');
 
@@ -35,7 +37,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     if (sourceColId === destColId && source.index === destination.index) return;
 
     const destCol = columns.find((c) => c.id === destColId);
-    const currentDestTasks = tasks.filter((t) => t.column_id === destColId);
+    const currentDestTasks = tasks.filter((t) => Number(t.column_id) === destColId);
 
     if (sourceColId !== destColId && destCol && destCol.wip_limit !== null) {
       if (currentDestTasks.length >= destCol.wip_limit) {
@@ -44,10 +46,18 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       }
     }
 
-    const updatedTasks = tasks.map((t) => (t.id === Number(draggableId) ? { ...t, column_id: destColId } : t));
+    const draggedTask = tasks.find((t) => Number(t.id) === Number(draggableId));
+
+    // Intercept move to Ready to Start (Column 2) if not yet scheduled
+    if (destColId === 2 && draggedTask && !draggedTask.schedule_start) {
+      setSchedulingTask({ ...draggedTask, targetPosition: destination.index });
+      return;
+    }
+
+    // Direct move for other columns or already scheduled tasks
+    const updatedTasks = tasks.map((t) => (Number(t.id) === Number(draggableId) ? { ...t, column_id: destColId } : t));
     setTasks(updatedTasks);
 
-    // Persist move to backend API
     try {
       await fetch(`/api/tasks/${draggableId}`, {
         method: 'PATCH',
@@ -57,6 +67,33 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     } catch (err) {
       console.log('Failed to persist task move to server');
     }
+  };
+
+  const handleConfirmSchedule = async (taskToSchedule, startIso, endIso) => {
+    const updatedTasks = tasks.map((t) =>
+      Number(t.id) === Number(taskToSchedule.id)
+        ? { ...t, column_id: 2, schedule_start: startIso, schedule_end: endIso }
+        : t
+    );
+    setTasks(updatedTasks);
+    setSchedulingTask(null);
+
+    try {
+      await fetch(`/api/tasks/${taskToSchedule.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          column_id: 2,
+          schedule_start: startIso,
+          schedule_end: endIso,
+          position: taskToSchedule.targetPosition || 0
+        })
+      });
+    } catch (err) {
+      console.log('Failed to persist schedule to server');
+    }
+
+    showAlert(`✅ Task "${taskToSchedule.title}" scheduled & moved to Ready to Start!`);
   };
 
   const handleAddTaskData = async (taskData) => {
@@ -79,7 +116,9 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       title: taskData.title.trim(),
       description: taskData.description || '',
       is_urgent: taskData.is_urgent,
-      is_important: taskData.is_important
+      is_important: taskData.is_important,
+      urgency_level: taskData.urgency_level,
+      importance_level: taskData.importance_level
     };
 
     const tempTask = {
@@ -87,11 +126,9 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       ...newTaskPayload
     };
 
-    // Optimistically update React state immediately
     setTasks((prev) => [...prev, tempTask]);
     setIsModalOpen(false);
 
-    // Persist to backend database via REST API
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
@@ -126,6 +163,14 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddTaskData}
         columns={columns}
+      />
+
+      {/* Schedule Time Block Modal */}
+      <ScheduleModal
+        isOpen={Boolean(schedulingTask)}
+        onClose={() => setSchedulingTask(null)}
+        onConfirm={handleConfirmSchedule}
+        task={schedulingTask}
       />
 
       {/* Primary + Add Task Button */}
