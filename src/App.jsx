@@ -47,6 +47,8 @@ export default function App() {
           display: 'flex',
           justify: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
           marginBottom: '24px',
           background: '#f8f4f0',
           padding: '16px 24px',
