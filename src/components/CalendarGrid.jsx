@@ -26,6 +26,10 @@ export default function CalendarGrid({ tasks }) {
         border: '1px solid #c5c0b1',
         padding: '20px',
         flex: 1,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
         minWidth: '320px'
       }}
     >
@@ -39,7 +43,8 @@ export default function CalendarGrid({ tasks }) {
           gap: '12px',
           marginBottom: '16px',
           paddingBottom: '12px',
-          borderBottom: '1px solid #c5c0b1'
+          borderBottom: '1px solid #c5c0b1',
+          flexShrink: 0
         }}
       >
         <h2 style={{ margin: 0, fontSize: '1.1em', color: '#201515', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -78,7 +83,7 @@ export default function CalendarGrid({ tasks }) {
       </div>
 
       {/* Hourly Grid */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '500px', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {hours.map((hour) => {
           const timeLabel = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
 
