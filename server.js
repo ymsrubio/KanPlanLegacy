@@ -1,45 +1,95 @@
-require('dotenv').config();
+// server.js
+// Express API Server for KanPlan with SQLite / D1 backend
 
-const { Pool } = require('pg');
-
-// Create a connection pool using the credentials from your Docker setup
-const pool = new Pool({
-    user: process.env.MY_SECRET_USER, // Probably 'postgres' or whatever you set
-    host: 'localhost',
-    database: process.env.MY_SECRET_DATABASE, // Or whatever you named your DB
-    password: process.env.MY_SECRET_PASSWORD,
-    port: 5432,
-});
-
-// Block 1: Import the Express library into your file
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const Database = require('better-sqlite3');
 
-// Block 2: Create your server application (the "waiter")
+const { createTask, moveTask } = require('./lib/task-service');
+const { createColumn, updateColumn, deleteColumn } = require('./lib/column-service');
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Block 3: Open a route
-// When a GET request hits the root URL ('/'), run this function.
-// 'req' is the incoming request. 'res' is your outgoing response.
-app.get('/', (req, res) => {
-    res.send("Hello");
+// Enable JSON body parsing
+app.use(express.json());
+
+// Initialize SQLite database (local dev / production file)
+const dbPath = path.join(__dirname, 'kanplan.db');
+const db = new Database(dbPath);
+
+// Ensure database schema is initialized
+const schemaSql = fs.readFileSync(path.join(__dirname, 'db/schema.sql'), 'utf8');
+db.exec(schemaSql);
+
+// --- REST API ENDPOINTS ---
+
+// 1. GET /api/columns - Fetch all columns
+app.get('/api/columns', (req, res) => {
+  try {
+    const columns = db.prepare('SELECT * FROM columns ORDER BY position ASC').all();
+    res.json(columns);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/tasks', async (req, res) => {
-    try {
-        // 1. Tell the pool to execute your SQL query and 'await' the response
-        const result = await pool.query('SELECT * FROM tasks;');
-
-        // 2. Send the rows of data back to the browser as JSON (not raw text)
-        res.json(result.rows)
-
-    } catch (error) {
-        console.error("Database error:", error);
-        res.status(500).send("Server Error");
-    }
+// 2. GET /api/tasks - Fetch all tasks
+app.get('/api/tasks', (req, res) => {
+  try {
+    const tasks = db.prepare('SELECT * FROM tasks ORDER BY column_id ASC, position ASC').all();
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Block 4: Turn the server on
-// Tell the app to listen for traffic on port 3000.
-app.listen(3000, () => {
-    console.log("port 3000 is open")
+// 3. POST /api/tasks - Create a new task (with WIP limit validation)
+app.post('/api/tasks', (req, res) => {
+  try {
+    const newTask = createTask(db, req.body);
+    res.status(201).json(newTask);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
+
+// 4. PATCH /api/tasks/:id - Move task / update column or position
+app.patch('/api/tasks/:id', (req, res) => {
+  try {
+    const taskId = Number(req.params.id);
+    const { column_id, position } = req.body;
+    const updated = moveTask(db, taskId, column_id, position || 0);
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 5. POST /api/columns - Create new column
+app.post('/api/columns', (req, res) => {
+  try {
+    const newCol = createColumn(db, req.body);
+    res.status(201).json(newCol);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Serve Vite static build in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'dist')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  });
+}
+
+// Start server
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 KanPlan server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { app, db };
