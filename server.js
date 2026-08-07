@@ -23,6 +23,14 @@ const db = new Database(dbPath);
 const schemaSql = fs.readFileSync(path.join(__dirname, 'db/schema.sql'), 'utf8');
 db.exec(schemaSql);
 
+// PROTOTYPE FIX #26: Automatically purge all legacy duplicate columns from kanplan.db
+db.exec(`
+  DELETE FROM columns 
+  WHERE id NOT IN (
+    SELECT MIN(id) FROM columns GROUP BY name
+  );
+`);
+
 // --- REST API ENDPOINTS ---
 
 // 1. GET /api/columns - Fetch all columns
