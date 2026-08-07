@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   description TEXT,
   is_urgent INTEGER DEFAULT 0,
   is_important INTEGER DEFAULT 0,
+  urgency_level INTEGER DEFAULT 3 CHECK(urgency_level BETWEEN 1 AND 5),
+  importance_level INTEGER DEFAULT 3 CHECK(importance_level BETWEEN 1 AND 5),
   schedule_start TEXT,
   schedule_end TEXT,
   deadline TEXT,

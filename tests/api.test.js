@@ -24,6 +24,20 @@ test('API Service - Fetches default columns and tasks', () => {
   assert.equal(tasks[0].title, 'API Test Task');
 });
 
+test('API Service - Calculates 1-5 scale Priority Score correctly', () => {
+  const db = setupTestDb();
+  const task = createTask(db, {
+    column_id: 1,
+    title: 'High Priority Task',
+    urgency_level: 5,
+    importance_level: 4
+  });
+
+  assert.equal(task.urgency_level, 5);
+  assert.equal(task.importance_level, 4);
+  assert.equal(task.priority_score, 20);
+});
+
 test('API Service - Moves task and rejects WIP limit overflow', () => {
   const db = setupTestDb();
   const backlogId = 1;

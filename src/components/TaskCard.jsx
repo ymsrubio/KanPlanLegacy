@@ -3,11 +3,14 @@ import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 
 export default function TaskCard({ task, index }) {
+  const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
+  const importance = task.importance_level || (task.is_important ? 4 : 2);
+  const priorityScore = task.priority_score || (urgency * importance);
+
   const getBadge = () => {
-    if (task.is_urgent && task.is_important) return { label: '🔥 Do First', bg: '#fee2e2', color: '#991b1b' };
-    if (!task.is_urgent && task.is_important) return { label: '📅 Schedule', bg: '#dbeafe', color: '#1e40af' };
-    if (task.is_urgent && !task.is_important) return { label: '⚡ Delegate', bg: '#fef3c7', color: '#92400e' };
-    return { label: '📥 Backlog', bg: '#f3f4f6', color: '#374151' };
+    if (priorityScore >= 16) return { label: `🔥 Priority: ${priorityScore}`, bg: '#ffe4e6', color: '#9f1239' };
+    if (priorityScore >= 10) return { label: `⚡ Priority: ${priorityScore}`, bg: '#e0e7ff', color: '#3730a3' };
+    return { label: `📥 Priority: ${priorityScore}`, bg: '#f1f5f9', color: '#334155' };
   };
 
   const badge = getBadge();
@@ -20,33 +23,33 @@ export default function TaskCard({ task, index }) {
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           style={{
-            background: snapshot.isDragging ? '#f0f9ff' : '#ffffff',
+            background: snapshot.isDragging ? '#f3ede6' : '#ffffff',
             borderRadius: '8px',
             padding: '12px',
             marginBottom: '10px',
             boxShadow: snapshot.isDragging
-              ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-              : '0 1px 3px rgba(0,0,0,0.1)',
-            border: snapshot.isDragging ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+              ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+              : '0 1px 3px rgba(0,0,0,0.08)',
+            border: snapshot.isDragging ? '2px solid #ff4f00' : '1px solid #c5c0b1',
             cursor: 'grab',
             transition: 'background 0.2s, border 0.2s',
             ...provided.draggableProps.style
           }}
         >
-          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>{task.title}</div>
+          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em' }}>{task.title}</div>
           {task.description && (
-            <div style={{ fontSize: '0.85em', color: '#64748b', marginBottom: '8px' }}>
+            <div style={{ fontSize: '0.82em', color: '#605d52', marginBottom: '8px' }}>
               {task.description}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
             <span
               style={{
                 display: 'inline-block',
                 padding: '2px 8px',
                 borderRadius: '12px',
                 fontSize: '0.75em',
-                fontWeight: '600',
+                fontWeight: '700',
                 background: badge.bg,
                 color: badge.color
               }}
@@ -54,7 +57,7 @@ export default function TaskCard({ task, index }) {
               {badge.label}
             </span>
             {task.schedule_start && (
-              <span style={{ fontSize: '0.75em', color: '#3b82f6', fontWeight: '500' }}>
+              <span style={{ fontSize: '0.75em', color: '#ff4f00', fontWeight: '600' }}>
                 ⏱️ Scheduled
               </span>
             )}
