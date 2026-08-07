@@ -43,6 +43,14 @@ export default function TaskCard({ task, index }) {
     }
   });
 
+  const handleDragStart = (e) => {
+    if (e.dataTransfer) {
+      const img = new Image();
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      e.dataTransfer.setDragImage(img, 0, 0);
+    }
+  };
+
   return (
     <Draggable draggableId={String(task.id)} index={index}>
       {(provided, snapshot) => (
@@ -53,19 +61,22 @@ export default function TaskCard({ task, index }) {
           className="kanban-task-card"
           data-event={fcEventData}
           data-task-id={task.id}
+          onDragStart={handleDragStart}
           style={{
-            background: snapshot.isDragging ? '#f3ede6' : '#ffffff',
+            background: snapshot.isDragging ? '#ffffff' : '#ffffff',
+            opacity: 1,
             borderRadius: '8px',
             padding: '12px',
             marginBottom: '10px',
             boxShadow: snapshot.isDragging
-              ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+              ? '0 14px 28px rgba(32, 21, 21, 0.22), 0 6px 10px rgba(32, 21, 21, 0.14)'
               : '0 1px 3px rgba(0,0,0,0.08)',
             border: snapshot.isDragging ? '2px solid #ff4f00' : '1px solid #c5c0b1',
             cursor: 'grab',
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            transition: 'background 0.2s, border 0.2s',
+            zIndex: snapshot.isDragging ? 99999 : 'auto',
+            transition: 'box-shadow 0.2s, border 0.2s',
             ...provided.draggableProps.style
           }}
         >
@@ -89,11 +100,25 @@ export default function TaskCard({ task, index }) {
             >
               {badge.label}
             </span>
-            {scheduleTimeLabel && (
-              <span style={{ fontSize: '0.75em', color: '#ff4f00', fontWeight: '700', background: '#fff1f2', padding: '2px 6px', borderRadius: '6px', border: '1px solid #fecdd3' }}>
-                {scheduleTimeLabel}
-              </span>
-            )}
+
+            {/* Dedicated handle for dragging directly onto FullCalendar */}
+            <span
+              className="fc-drag-handle"
+              data-event={fcEventData}
+              title="Drag onto Calendar to time-block"
+              style={{
+                fontSize: '0.75em',
+                color: '#ff4f00',
+                fontWeight: '700',
+                background: scheduleTimeLabel ? '#fff1f2' : '#fff8f5',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                border: '1px solid #fecdd3',
+                cursor: 'grab'
+              }}
+            >
+              {scheduleTimeLabel || '⏱️ Schedule'}
+            </span>
           </div>
         </div>
       )}

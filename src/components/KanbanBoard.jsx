@@ -31,7 +31,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     if (!boardRef.current) return;
 
     const draggable = new FcDraggable(boardRef.current, {
-      itemSelector: '.kanban-task-card',
+      itemSelector: '.fc-drag-handle',
       eventData: (el) => {
         try {
           return JSON.parse(el.getAttribute('data-event'));

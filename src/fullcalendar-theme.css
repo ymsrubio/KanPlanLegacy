@@ -203,18 +203,19 @@
 }
 
 /* ── External Ghost / Mirror ── */
-/* Suppress body-level FullCalendar drag mirror outside calendar to eliminate double ghosting with @hello-pangea/dnd */
-body > .fc-event-mirror {
+/* Suppress any FullCalendar drag mirror outside the calendar grid (.fc) to eliminate double ghosting with @hello-pangea/dnd */
+.fc-event-mirror:not(.fc .fc-event-mirror) {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .fc .fc-event-mirror {
   background: #ff4f00 !important;
-  opacity: 0.85;
+  opacity: 0.85 !important;
   border-radius: 6px !important;
-  box-shadow: 0 8px 20px rgba(255, 79, 0, 0.3);
+  box-shadow: 0 8px 20px rgba(255, 79, 0, 0.3) !important;
   display: block !important;
   visibility: visible !important;
 }
