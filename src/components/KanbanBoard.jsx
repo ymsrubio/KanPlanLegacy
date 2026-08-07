@@ -199,9 +199,9 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         </button>
       </form>
 
-      {/* Drag & Drop Board */}
+      {/* Drag & Drop Board (Vertical Stack) */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
           {columns.map((col) => {
             const colTasks = tasks.filter((t) => Number(t.column_id) === Number(col.id));
             const isFull = col.wip_limit !== null && colTasks.length >= col.wip_limit;
@@ -216,8 +216,8 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
                       background: snapshot.isDraggingOver ? '#f3ede6' : '#f8f4f0',
                       borderRadius: '12px',
                       padding: '16px',
-                      minWidth: '260px',
-                      width: '260px',
+                      width: '100%',
+                      boxSizing: 'border-box',
                       border: isFull ? '2px solid #ff4f00' : '1px solid #c5c0b1',
                       transition: 'background 0.2s, border 0.2s'
                     }}
@@ -255,7 +255,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
                       )}
                     </div>
 
-                    <div style={{ minHeight: '150px' }}>
+                    <div style={{ minHeight: '60px' }}>
                       {colTasks.map((task, index) => (
                         <TaskCard key={task.id} task={task} index={index} />
                       ))}
