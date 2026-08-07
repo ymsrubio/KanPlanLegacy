@@ -126,6 +126,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         onSubmit={handleAddTask}
         style={{
           display: 'flex',
+          flexWrap: 'wrap',
           gap: '12px',
           marginBottom: '20px',
           background: '#f8f4f0',

@@ -35,6 +35,8 @@ export default function CalendarGrid({ tasks }) {
           display: 'flex',
           justify: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
           marginBottom: '16px',
           paddingBottom: '12px',
           borderBottom: '1px solid #c5c0b1'
