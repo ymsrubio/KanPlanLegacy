@@ -1,16 +1,12 @@
 // src/components/CalendarGrid.jsx
 import React, { useState } from 'react';
 
-export default function CalendarGrid({ tasks, onScheduleTask }) {
-  const [viewMode, setViewMode] = useState('day'); // 'day' or 'week'
-
-  // Time slots from 8 AM to 8 PM
+export default function CalendarGrid({ tasks }) {
+  const [viewMode, setViewMode] = useState('day');
   const hours = Array.from({ length: 13 }, (_, i) => i + 8);
 
-  // Helper to detect schedule overlaps
   const checkOverlap = (task) => {
     if (!task.schedule_start || !task.schedule_end) return false;
-
     const start = new Date(task.schedule_start).getTime();
     const end = new Date(task.schedule_end).getTime();
 
@@ -18,8 +14,6 @@ export default function CalendarGrid({ tasks, onScheduleTask }) {
       if (other.id === task.id || !other.schedule_start || !other.schedule_end) return false;
       const otherStart = new Date(other.schedule_start).getTime();
       const otherEnd = new Date(other.schedule_end).getTime();
-
-      // Overlap condition: start < otherEnd && end > otherStart
       return start < otherEnd && end > otherStart;
     });
   };
@@ -27,15 +21,15 @@ export default function CalendarGrid({ tasks, onScheduleTask }) {
   return (
     <div
       style={{
-        background: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '16px',
+        background: '#f8f4f0',
+        borderRadius: '12px',
+        border: '1px solid #c5c0b1',
+        padding: '20px',
         flex: 1,
         minWidth: '320px'
       }}
     >
-      {/* Header & View Mode Switcher */}
+      {/* Header */}
       <div
         style={{
           display: 'flex',
@@ -43,24 +37,23 @@ export default function CalendarGrid({ tasks, onScheduleTask }) {
           alignItems: 'center',
           marginBottom: '16px',
           paddingBottom: '12px',
-          borderBottom: '1px solid #f1f5f9'
+          borderBottom: '1px solid #c5c0b1'
         }}
       >
-        <h2 style={{ margin: 0, fontSize: '1.1em', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h2 style={{ margin: 0, fontSize: '1.1em', color: '#201515', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
           📅 Time Blocking Calendar
         </h2>
-        <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '6px' }}>
+        <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '3px', borderRadius: '8px', border: '1px solid #c5c0b1' }}>
           <button
             onClick={() => setViewMode('day')}
             style={{
               border: 'none',
-              background: viewMode === 'day' ? '#ffffff' : 'transparent',
-              color: viewMode === 'day' ? '#0f172a' : '#64748b',
+              background: viewMode === 'day' ? '#201515' : 'transparent',
+              color: viewMode === 'day' ? '#fffefb' : '#201515',
               fontWeight: viewMode === 'day' ? '600' : 'normal',
               padding: '4px 12px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              boxShadow: viewMode === 'day' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+              borderRadius: '6px',
+              cursor: 'pointer'
             }}
           >
             Day
@@ -69,13 +62,12 @@ export default function CalendarGrid({ tasks, onScheduleTask }) {
             onClick={() => setViewMode('week')}
             style={{
               border: 'none',
-              background: viewMode === 'week' ? '#ffffff' : 'transparent',
-              color: viewMode === 'week' ? '#0f172a' : '#64748b',
+              background: viewMode === 'week' ? '#201515' : 'transparent',
+              color: viewMode === 'week' ? '#fffefb' : '#201515',
               fontWeight: viewMode === 'week' ? '600' : 'normal',
               padding: '4px 12px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              boxShadow: viewMode === 'week' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+              borderRadius: '6px',
+              cursor: 'pointer'
             }}
           >
             Week
@@ -84,11 +76,10 @@ export default function CalendarGrid({ tasks, onScheduleTask }) {
       </div>
 
       {/* Hourly Grid */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '500px', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '500px', overflowY: 'auto' }}>
         {hours.map((hour) => {
           const timeLabel = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
 
-          // Find tasks scheduled during this hour slot
           const scheduledTasks = tasks.filter((t) => {
             if (!t.schedule_start) return false;
             const taskHour = new Date(t.schedule_start).getHours();
@@ -101,11 +92,11 @@ export default function CalendarGrid({ tasks, onScheduleTask }) {
               style={{
                 display: 'flex',
                 minHeight: '44px',
-                borderBottom: '1px solid #f1f5f9',
+                borderBottom: '1px solid #e5e0d8',
                 alignItems: 'center'
               }}
             >
-              <div style={{ width: '70px', fontSize: '0.75em', color: '#94a3b8', fontWeight: '500' }}>
+              <div style={{ width: '70px', fontSize: '0.75em', color: '#605d52', fontWeight: '600' }}>
                 {timeLabel}
               </div>
               <div
@@ -115,26 +106,26 @@ export default function CalendarGrid({ tasks, onScheduleTask }) {
                   gap: '8px',
                   minHeight: '36px',
                   alignItems: 'center',
-                  background: scheduledTasks.length > 0 ? '#f8fafc' : 'transparent',
-                  borderRadius: '4px',
+                  background: scheduledTasks.length > 0 ? '#fffefb' : 'transparent',
+                  borderRadius: '6px',
                   padding: '2px 8px'
                 }}
               >
                 {scheduledTasks.map((t) => {
                   const isOverlapping = checkOverlap(t);
-                  const isDone = t.column_id === 4; // Done column
+                  const isDone = t.column_id === 4;
 
                   return (
                     <div
                       key={t.id}
                       style={{
-                        background: isDone ? '#ecfdf5' : isOverlapping ? '#fef2f2' : '#eff6ff',
+                        background: isDone ? '#ecfdf5' : isOverlapping ? '#fff1f2' : '#fffefb',
                         border: isDone
                           ? '1px solid #a7f3d0'
                           : isOverlapping
-                          ? '2px solid #ef4444'
-                          : '1px solid #bfdbfe',
-                        color: isDone ? '#047857' : isOverlapping ? '#991b1b' : '#1e40af',
+                          ? '2px solid #ff4f00'
+                          : '1px solid #201515',
+                        color: isDone ? '#047857' : isOverlapping ? '#991b1b' : '#201515',
                         padding: '4px 10px',
                         borderRadius: '6px',
                         fontSize: '0.8em',
