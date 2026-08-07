@@ -25,9 +25,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed initial default columns
-INSERT INTO columns (name, position, wip_limit) VALUES 
-  ('Backlog', 0, NULL),
-  ('Ready to Start', 1, 3),
-  ('In Progress', 2, 2),
-  ('Done', 3, NULL);
+-- Seed initial default columns idempotently
+INSERT INTO columns (id, name, position, wip_limit) VALUES 
+  (1, 'Backlog', 0, NULL),
+  (2, 'Ready to Start', 1, 3),
+  (3, 'In Progress', 2, 2),
+  (4, 'Done', 3, NULL)
+ON CONFLICT(id) DO NOTHING;

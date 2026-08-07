@@ -1,21 +1,77 @@
 // src/components/CalendarGrid.jsx
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import '../fullcalendar-theme.css';
 
-export default function CalendarGrid({ tasks }) {
-  const [viewMode, setViewMode] = useState('day');
-  const hours = Array.from({ length: 13 }, (_, i) => i + 8);
+function getPriorityClass(task) {
+  const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
+  const importance = task.importance_level || (task.is_important ? 4 : 2);
+  const score = task.priority_score || (urgency * importance);
+  if (score >= 20) return 'priority-critical';
+  if (score >= 12) return 'priority-high';
+  if (score >= 8) return 'priority-medium';
+  return 'priority-low';
+}
 
-  const checkOverlap = (task) => {
-    if (!task.schedule_start || !task.schedule_end) return false;
-    const start = new Date(task.schedule_start).getTime();
-    const end = new Date(task.schedule_end).getTime();
+export default function CalendarGrid({ tasks, onScheduleChange, onExternalDrop }) {
+  // Convert tasks → FullCalendar events
+  const events = useMemo(() => {
+    return tasks
+      .filter((t) => t.schedule_start)
+      .map((t) => {
+        const isDone = Number(t.column_id) === 4;
+        const priorityClass = getPriorityClass(t);
+        return {
+          id: String(t.id),
+          title: t.title,
+          start: t.schedule_start,
+          end: t.schedule_end || undefined,
+          classNames: [priorityClass, isDone ? 'event-done' : ''],
+          extendedProps: {
+            taskId: t.id,
+            description: t.description,
+            column_id: t.column_id,
+            priority_score: t.priority_score
+          }
+        };
+      });
+  }, [tasks]);
 
-    return tasks.some((other) => {
-      if (other.id === task.id || !other.schedule_start || !other.schedule_end) return false;
-      const otherStart = new Date(other.schedule_start).getTime();
-      const otherEnd = new Date(other.schedule_end).getTime();
-      return start < otherEnd && end > otherStart;
-    });
+  // On-calendar drag to reschedule
+  const handleEventDrop = (info) => {
+    if (!onScheduleChange) return;
+    const taskId = Number(info.event.extendedProps.taskId);
+    const startIso = formatLocalIso(info.event.start);
+    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
+    onScheduleChange(taskId, startIso, endIso);
+  };
+
+  // On-calendar drag to resize duration
+  const handleEventResize = (info) => {
+    if (!onScheduleChange) return;
+    const taskId = Number(info.event.extendedProps.taskId);
+    const startIso = formatLocalIso(info.event.start);
+    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
+    onScheduleChange(taskId, startIso, endIso);
+  };
+
+  // External drop from Kanban board
+  const handleEventReceive = (info) => {
+    if (!onExternalDrop) return;
+
+    // Parse data-event JSON from the dragged element
+    const rawData = info.event.extendedProps;
+    const taskId = rawData.taskId || Number(info.event.id);
+    const startIso = formatLocalIso(info.event.start);
+    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
+
+    // Remove the FullCalendar-rendered ghost — we manage state ourselves
+    info.event.remove();
+
+    onExternalDrop(taskId, startIso, endIso);
   };
 
   return (
@@ -24,138 +80,61 @@ export default function CalendarGrid({ tasks }) {
         background: '#f8f4f0',
         borderRadius: '12px',
         border: '1px solid #c5c0b1',
-        padding: '20px',
+        padding: '8px',
         flex: 1,
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
-        minWidth: '320px'
+        minWidth: '320px',
+        overflow: 'hidden'
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          justify: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '16px',
-          paddingBottom: '12px',
-          borderBottom: '1px solid #c5c0b1',
-          flexShrink: 0
+      <FullCalendar
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        initialView="timeGridDay"
+        headerToolbar={{
+          left: 'prev,next today',
+          center: 'title',
+          right: 'timeGridDay,timeGridWeek'
         }}
-      >
-        <h2 style={{ margin: 0, fontSize: '1.1em', color: '#201515', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          📅 Time Blocking Calendar
-        </h2>
-        <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '3px', borderRadius: '8px', border: '1px solid #c5c0b1' }}>
-          <button
-            onClick={() => setViewMode('day')}
-            style={{
-              border: 'none',
-              background: viewMode === 'day' ? '#201515' : 'transparent',
-              color: viewMode === 'day' ? '#fffefb' : '#201515',
-              fontWeight: viewMode === 'day' ? '600' : 'normal',
-              padding: '4px 12px',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            Day
-          </button>
-          <button
-            onClick={() => setViewMode('week')}
-            style={{
-              border: 'none',
-              background: viewMode === 'week' ? '#201515' : 'transparent',
-              color: viewMode === 'week' ? '#fffefb' : '#201515',
-              fontWeight: viewMode === 'week' ? '600' : 'normal',
-              padding: '4px 12px',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            Week
-          </button>
-        </div>
-      </div>
-
-      {/* Hourly Grid */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {hours.map((hour) => {
-          const timeLabel = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
-
-          const scheduledTasks = tasks.filter((t) => {
-            if (!t.schedule_start) return false;
-            const startHour = Number(t.schedule_start.split('T')[1]?.split(':')[0]);
-            const endHour = t.schedule_end
-              ? Number(t.schedule_end.split('T')[1]?.split(':')[0])
-              : startHour + 1;
-            return hour >= startHour && hour < endHour;
-          });
-
-          return (
-            <div
-              key={hour}
-              style={{
-                display: 'flex',
-                minHeight: '44px',
-                borderBottom: '1px solid #e5e0d8',
-                alignItems: 'center'
-              }}
-            >
-              <div style={{ width: '70px', fontSize: '0.75em', color: '#605d52', fontWeight: '600' }}>
-                {timeLabel}
-              </div>
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  gap: '8px',
-                  minHeight: '36px',
-                  alignItems: 'center',
-                  background: scheduledTasks.length > 0 ? '#fffefb' : 'transparent',
-                  borderRadius: '6px',
-                  padding: '2px 8px'
-                }}
-              >
-                {scheduledTasks.map((t) => {
-                  const isOverlapping = checkOverlap(t);
-                  const isDone = t.column_id === 4;
-
-                  return (
-                    <div
-                      key={t.id}
-                      style={{
-                        background: isDone ? '#ecfdf5' : isOverlapping ? '#fff1f2' : '#fffefb',
-                        border: isDone
-                          ? '1px solid #a7f3d0'
-                          : isOverlapping
-                          ? '2px solid #ff4f00'
-                          : '1px solid #201515',
-                        color: isDone ? '#047857' : isOverlapping ? '#991b1b' : '#201515',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.8em',
-                        fontWeight: '600',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {isOverlapping && <span title="Schedule Overlap Warning!">⚠️</span>}
-                      {isDone && <span>✅</span>}
-                      <span>{t.title}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+        buttonText={{
+          today: 'Today',
+          day: 'Day',
+          week: 'Week'
+        }}
+        slotDuration="00:30:00"
+        slotLabelInterval="01:00:00"
+        slotMinTime="08:00:00"
+        slotMaxTime="21:00:00"
+        snapDuration="00:30:00"
+        allDaySlot={false}
+        height="100%"
+        expandRows={true}
+        nowIndicator={true}
+        editable={true}
+        droppable={true}
+        eventOverlap={true}
+        eventDurationEditable={true}
+        eventStartEditable={true}
+        dayMaxEvents={true}
+        events={events}
+        eventDrop={handleEventDrop}
+        eventResize={handleEventResize}
+        eventReceive={handleEventReceive}
+      />
     </div>
   );
+}
+
+/** Format a Date object to local wall-clock ISO string (no Z offset) */
+function formatLocalIso(date) {
+  if (!date) return null;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const s = String(date.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}:${s}`;
 }

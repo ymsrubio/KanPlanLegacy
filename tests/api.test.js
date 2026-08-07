@@ -24,6 +24,19 @@ test('API Service - Fetches default columns and tasks', () => {
   assert.equal(tasks[0].title, 'API Test Task');
 });
 
+test('API Service - Schema execution is idempotent and avoids duplicate columns', () => {
+  const db = setupTestDb();
+  const schemaSql = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
+
+  // Execute schema 3 more times
+  db.exec(schemaSql);
+  db.exec(schemaSql);
+  db.exec(schemaSql);
+
+  const columns = db.prepare('SELECT * FROM columns ORDER BY position ASC').all();
+  assert.equal(columns.length, 4);
+});
+
 test('API Service - Calculates 1-5 scale Priority Score correctly', () => {
   const db = setupTestDb();
   const task = createTask(db, {

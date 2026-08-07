@@ -16,18 +16,32 @@ export default function TaskCard({ task, index }) {
   const formatSchedule = () => {
     if (!task.schedule_start) return null;
     const startHour = Number(task.schedule_start.split('T')[1]?.split(':')[0]);
-    const startLabel = `${startHour > 12 ? startHour - 12 : startHour || 12}:00 ${startHour >= 12 ? 'PM' : 'AM'}`;
+    const startMin = task.schedule_start.split('T')[1]?.split(':')[1] || '00';
+    const startLabel = `${startHour > 12 ? startHour - 12 : startHour || 12}:${startMin} ${startHour >= 12 ? 'PM' : 'AM'}`;
 
     if (!task.schedule_end) return `⏱️ ${startLabel}`;
 
     const endHour = Number(task.schedule_end.split('T')[1]?.split(':')[0]);
-    const endLabel = `${endHour > 12 ? endHour - 12 : endHour || 12}:00 ${endHour >= 12 ? 'PM' : 'AM'}`;
+    const endMin = task.schedule_end.split('T')[1]?.split(':')[1] || '00';
+    const endLabel = `${endHour > 12 ? endHour - 12 : endHour || 12}:${endMin} ${endHour >= 12 ? 'PM' : 'AM'}`;
 
     return `⏱️ ${startLabel} - ${endLabel}`;
   };
 
   const badge = getBadge();
   const scheduleTimeLabel = formatSchedule();
+
+  // FullCalendar external drag data — encoded as data-event JSON
+  const fcEventData = JSON.stringify({
+    id: String(task.id),
+    title: task.title,
+    duration: '01:00',
+    extendedProps: {
+      taskId: task.id,
+      description: task.description,
+      column_id: task.column_id
+    }
+  });
 
   return (
     <Draggable draggableId={String(task.id)} index={index}>
@@ -36,6 +50,9 @@ export default function TaskCard({ task, index }) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
+          className="kanban-task-card"
+          data-event={fcEventData}
+          data-task-id={task.id}
           style={{
             background: snapshot.isDragging ? '#f3ede6' : '#ffffff',
             borderRadius: '8px',

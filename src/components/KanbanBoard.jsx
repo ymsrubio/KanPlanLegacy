@@ -1,6 +1,7 @@
 // src/components/KanbanBoard.jsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
+import { Draggable as FcDraggable } from '@fullcalendar/interaction';
 import TaskCard from './TaskCard.jsx';
 import Toast from './Toast.jsx';
 import AddTaskModal from './AddTaskModal.jsx';
@@ -22,6 +23,26 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
   const [schedulingTask, setSchedulingTask] = useState(null);
   const [editingColId, setEditingColId] = useState(null);
   const [editWipLimit, setEditWipLimit] = useState('');
+
+  // Ref for FullCalendar external Draggable registration
+  const boardRef = useRef(null);
+
+  useEffect(() => {
+    if (!boardRef.current) return;
+
+    const draggable = new FcDraggable(boardRef.current, {
+      itemSelector: '.kanban-task-card',
+      eventData: (el) => {
+        try {
+          return JSON.parse(el.getAttribute('data-event'));
+        } catch {
+          return { title: 'Task', duration: '01:00' };
+        }
+      }
+    });
+
+    return () => draggable.destroy();
+  }, []);
 
   const showAlert = (msg) => {
     setAlert(msg);
@@ -153,7 +174,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
   };
 
   return (
-    <div style={{ padding: '0px' }}>
+    <div ref={boardRef} style={{ padding: '0px' }}>
       {/* Floating Toast Notification */}
       <Toast message={alert} />
 

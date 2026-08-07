@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import KanbanBoard from './components/KanbanBoard.jsx';
 import CalendarGrid from './components/CalendarGrid.jsx';
+import WipSwapModal from './components/WipSwapModal.jsx';
+import Toast from './components/Toast.jsx';
 
 export default function App() {
   const [layoutMode, setLayoutMode] = useState('split');
@@ -46,6 +48,15 @@ export default function App() {
     }
   ]);
 
+  // WIP swap modal state
+  const [wipSwapState, setWipSwapState] = useState(null);
+  const [calendarAlert, setCalendarAlert] = useState(null);
+
+  const showCalendarAlert = (msg) => {
+    setCalendarAlert(msg);
+    setTimeout(() => setCalendarAlert(null), 4000);
+  };
+
   useEffect(() => {
     fetch('/api/columns')
       .then((res) => (res.ok ? res.json() : null))
@@ -57,6 +68,113 @@ export default function App() {
       .then((data) => data && data.length > 0 && setTasks(data))
       .catch(() => console.log('Using local tasks fallback'));
   }, []);
+
+  // Calendar: on-calendar drag-to-reschedule or resize
+  const handleScheduleChange = async (taskId, startIso, endIso) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        Number(t.id) === taskId
+          ? { ...t, schedule_start: startIso, schedule_end: endIso }
+          : t
+      )
+    );
+
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule_start: startIso, schedule_end: endIso })
+      });
+    } catch (err) {
+      console.log('Failed to persist reschedule to server');
+    }
+  };
+
+  // Calendar: external drop from Kanban
+  const handleExternalDrop = (taskId, startIso, endIso) => {
+    const readyToStartCol = columns.find((c) => c.id === 2);
+    const readyTasks = tasks.filter((t) => Number(t.column_id) === 2);
+    const task = tasks.find((t) => Number(t.id) === taskId);
+
+    if (!task) return;
+
+    // Check WIP limit
+    if (
+      readyToStartCol &&
+      readyToStartCol.wip_limit !== null &&
+      Number(task.column_id) !== 2 &&
+      readyTasks.length >= readyToStartCol.wip_limit
+    ) {
+      // WIP full — open swap modal
+      setWipSwapState({
+        pendingTask: task,
+        startIso,
+        endIso,
+        readyTasks
+      });
+      return;
+    }
+
+    // Move task to Ready to Start + schedule it
+    completeExternalDrop(task, startIso, endIso);
+  };
+
+  const completeExternalDrop = async (task, startIso, endIso) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        Number(t.id) === Number(task.id)
+          ? { ...t, column_id: 2, schedule_start: startIso, schedule_end: endIso }
+          : t
+      )
+    );
+
+    try {
+      await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          column_id: 2,
+          schedule_start: startIso,
+          schedule_end: endIso
+        })
+      });
+    } catch (err) {
+      console.log('Failed to persist calendar drop to server');
+    }
+
+    showCalendarAlert(`✅ "${task.title}" scheduled & moved to Ready to Start!`);
+  };
+
+  // WIP swap: move selected task back to Backlog, then complete the pending drop
+  const handleWipSwap = async (swapTaskId) => {
+    if (!wipSwapState) return;
+
+    // Move the swapped task back to Backlog (column 1) and clear its schedule
+    setTasks((prev) =>
+      prev.map((t) =>
+        Number(t.id) === swapTaskId
+          ? { ...t, column_id: 1, schedule_start: null, schedule_end: null }
+          : t
+      )
+    );
+
+    try {
+      await fetch(`/api/tasks/${swapTaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ column_id: 1, schedule_start: null, schedule_end: null })
+      });
+    } catch (err) {
+      console.log('Failed to persist swap to server');
+    }
+
+    const swappedTask = tasks.find((t) => Number(t.id) === swapTaskId);
+    showCalendarAlert(`↩️ "${swappedTask?.title}" moved back to Backlog.`);
+
+    // Now complete the pending external drop
+    await completeExternalDrop(wipSwapState.pendingTask, wipSwapState.startIso, wipSwapState.endIso);
+    setWipSwapState(null);
+  };
 
   return (
     <div
@@ -73,6 +191,37 @@ export default function App() {
         color: '#201515'
       }}
     >
+      {/* Calendar-level toast */}
+      {calendarAlert && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            background: '#201515',
+            color: '#fffefb',
+            padding: '12px 20px',
+            borderRadius: '12px',
+            fontSize: '0.9em',
+            fontWeight: '600',
+            zIndex: 9999,
+            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+            animation: 'fadeIn 0.3s ease'
+          }}
+        >
+          {calendarAlert}
+        </div>
+      )}
+
+      {/* WIP Swap Modal */}
+      <WipSwapModal
+        isOpen={Boolean(wipSwapState)}
+        onClose={() => setWipSwapState(null)}
+        onSwap={handleWipSwap}
+        readyTasks={wipSwapState?.readyTasks || []}
+        pendingTask={wipSwapState?.pendingTask}
+      />
+
       {/* Fixed Header */}
       <header
         style={{
@@ -176,7 +325,11 @@ export default function App() {
               flexDirection: 'column'
             }}
           >
-            <CalendarGrid tasks={tasks} />
+            <CalendarGrid
+              tasks={tasks}
+              onScheduleChange={handleScheduleChange}
+              onExternalDrop={handleExternalDrop}
+            />
           </div>
         )}
       </main>
