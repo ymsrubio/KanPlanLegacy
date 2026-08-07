@@ -202,12 +202,21 @@
   border-radius: 6px;
 }
 
-/* ── External Ghost ── */
+/* ── External Ghost / Mirror ── */
+/* Suppress body-level FullCalendar drag mirror outside calendar to eliminate double ghosting with @hello-pangea/dnd */
+body > .fc-event-mirror {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
 .fc .fc-event-mirror {
   background: #ff4f00 !important;
-  opacity: 0.75;
+  opacity: 0.85;
   border-radius: 6px !important;
   box-shadow: 0 8px 20px rgba(255, 79, 0, 0.3);
+  display: block !important;
+  visibility: visible !important;
 }
 
 /* ── Day Grid (for potential future use) ── */

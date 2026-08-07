@@ -63,6 +63,8 @@ export default function TaskCard({ task, index }) {
               : '0 1px 3px rgba(0,0,0,0.08)',
             border: snapshot.isDragging ? '2px solid #ff4f00' : '1px solid #c5c0b1',
             cursor: 'grab',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
             transition: 'background 0.2s, border 0.2s',
             ...provided.draggableProps.style
           }}
