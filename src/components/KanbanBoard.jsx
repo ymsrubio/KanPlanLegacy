@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard.jsx';
 import Toast from './Toast.jsx';
+import AddTaskModal from './AddTaskModal.jsx';
 
 export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
   const [localColumns, setLocalColumns] = useState([
@@ -16,10 +17,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
   const setColumns = propSetColumns || setLocalColumns;
 
   const [alert, setAlert] = useState(null);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskColumnId, setNewTaskColumnId] = useState(1);
-  const [isUrgent, setIsUrgent] = useState(0);
-  const [isImportant, setIsImportant] = useState(1);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingColId, setEditingColId] = useState(null);
   const [editWipLimit, setEditWipLimit] = useState('');
 
@@ -61,16 +59,15 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     }
   };
 
-  const handleAddTask = async (e) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) {
+  const handleAddTaskData = async (taskData) => {
+    if (!taskData.title || !taskData.title.trim()) {
       showAlert('⚠️ Please enter a task title!');
       return;
     }
 
-    const targetColId = Number(newTaskColumnId);
+    const targetColId = Number(taskData.column_id);
     const targetCol = columns.find((c) => c.id === targetColId);
-    const currentTasks = tasks.filter((t) => t.column_id === targetColId);
+    const currentTasks = tasks.filter((t) => Number(t.column_id) === targetColId);
 
     if (targetCol && targetCol.wip_limit !== null && currentTasks.length >= targetCol.wip_limit) {
       showAlert(`⚠️ Cannot add task to "${targetCol.name}". WIP limit of ${targetCol.wip_limit} reached!`);
@@ -79,10 +76,10 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
     const newTaskPayload = {
       column_id: targetColId,
-      title: newTaskTitle.trim(),
-      description: '',
-      is_urgent: isUrgent,
-      is_important: isImportant
+      title: taskData.title.trim(),
+      description: taskData.description || '',
+      is_urgent: taskData.is_urgent,
+      is_important: taskData.is_important
     };
 
     const tempTask = {
@@ -92,8 +89,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
     // Optimistically update React state immediately
     setTasks((prev) => [...prev, tempTask]);
-    const addedTitle = newTaskTitle;
-    setNewTaskTitle('');
+    setIsModalOpen(false);
 
     // Persist to backend database via REST API
     try {
@@ -110,7 +106,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       console.log('Task saved locally in state');
     }
 
-    showAlert(`✅ Task "${addedTitle}" added to ${targetCol?.name ?? 'Backlog'}!`);
+    showAlert(`✅ Task "${newTaskPayload.title}" added to ${targetCol?.name ?? 'Backlog'}!`);
   };
 
   const handleSaveWipLimit = (colId) => {
@@ -124,80 +120,37 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       {/* Floating Toast Notification */}
       <Toast message={alert} />
 
-      {/* Add Task Bar */}
-      <form
-        onSubmit={handleAddTask}
+      {/* Add Task Pop-up Modal */}
+      <AddTaskModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddTaskData}
+        columns={columns}
+      />
+
+      {/* Primary + Add Task Button */}
+      <button
+        onClick={() => setIsModalOpen(true)}
         style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '20px',
-          background: '#f8f4f0',
-          padding: '12px 16px',
+          width: '100%',
+          padding: '12px',
+          marginBottom: '16px',
+          background: '#ff4f00',
+          color: '#fffefb',
+          border: 'none',
           borderRadius: '12px',
-          border: '1px solid #c5c0b1',
-          alignItems: 'center'
+          fontWeight: '700',
+          cursor: 'pointer',
+          fontSize: '0.95em',
+          boxShadow: '0 2px 4px rgba(255, 79, 0, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justify: 'center',
+          gap: '8px'
         }}
       >
-        <input
-          type="text"
-          placeholder="Enter new task..."
-          value={newTaskTitle}
-          onChange={(e) => setNewTaskTitle(e.target.value)}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '8px',
-            border: '1px solid #c5c0b1',
-            outline: 'none',
-            fontSize: '0.95em',
-            color: '#201515',
-            background: '#fffefb'
-          }}
-        />
-        <select
-          value={newTaskColumnId}
-          onChange={(e) => setNewTaskColumnId(Number(e.target.value))}
-          style={{
-            padding: '10px',
-            borderRadius: '8px',
-            border: '1px solid #c5c0b1',
-            background: '#fffefb',
-            color: '#201515',
-            fontSize: '0.9em'
-          }}
-        >
-          {columns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name} {c.wip_limit ? `(Max: ${c.wip_limit})` : ''}
-            </option>
-          ))}
-        </select>
-        <label style={{ fontSize: '0.85em', color: '#201515', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={isUrgent === 1} onChange={(e) => setIsUrgent(e.target.checked ? 1 : 0)} />
-          Urgent
-        </label>
-        <label style={{ fontSize: '0.85em', color: '#201515', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={isImportant === 1} onChange={(e) => setIsImportant(e.target.checked ? 1 : 0)} />
-          Important
-        </label>
-        <button
-          type="submit"
-          style={{
-            background: '#ff4f00',
-            color: '#fffefb',
-            border: 'none',
-            padding: '10px 20px',
-            borderRadius: '12px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            fontSize: '0.9em',
-            boxShadow: '0 2px 4px rgba(255, 79, 0, 0.2)'
-          }}
-        >
-          + Add Task
-        </button>
-      </form>
+        <span>➕ Add Task</span>
+      </button>
 
       {/* Drag & Drop Board (Vertical Stack) */}
       <DragDropContext onDragEnd={handleDragEnd}>
