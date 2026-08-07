@@ -1,10 +1,17 @@
 // src/App.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import KanbanBoard from './components/KanbanBoard.jsx';
 import CalendarGrid from './components/CalendarGrid.jsx';
 
 export default function App() {
   const [layoutMode, setLayoutMode] = useState('split');
+
+  const [columns, setColumns] = useState([
+    { id: 1, name: 'Backlog', wip_limit: null },
+    { id: 2, name: 'Ready to Start', wip_limit: 3 },
+    { id: 3, name: 'In Progress', wip_limit: 2 },
+    { id: 4, name: 'Done', wip_limit: null }
+  ]);
 
   const [tasks, setTasks] = useState([
     {
@@ -38,6 +45,19 @@ export default function App() {
       schedule_end: '2026-08-07T11:30:00Z'
     }
   ]);
+
+  // Fetch initial columns and tasks from REST API
+  useEffect(() => {
+    fetch('/api/columns')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setColumns(data))
+      .catch(() => console.log('Using local columns fallback'));
+
+    fetch('/api/tasks')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setColumns && data.length > 0 && setTasks(data))
+      .catch(() => console.log('Using local tasks fallback'));
+  }, []);
 
   return (
     <div style={{ padding: '24px', fontFamily: 'Inter, system-ui, sans-serif', background: '#fffefb', minHeight: '100vh', color: '#201515' }}>
@@ -122,7 +142,7 @@ export default function App() {
       <main style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
         {(layoutMode === 'split' || layoutMode === 'kanban') && (
           <div style={{ flex: layoutMode === 'split' ? 1.4 : 1 }}>
-            <KanbanBoard tasks={tasks} setTasks={setTasks} />
+            <KanbanBoard tasks={tasks} setTasks={setTasks} columns={columns} setColumns={setColumns} />
           </div>
         )}
 

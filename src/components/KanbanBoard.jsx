@@ -3,13 +3,16 @@ import React, { useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard.jsx';
 
-export default function KanbanBoard({ tasks, setTasks }) {
-  const [columns, setColumns] = useState([
+export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
+  const [localColumns, setLocalColumns] = useState([
     { id: 1, name: 'Backlog', wip_limit: null },
     { id: 2, name: 'Ready to Start', wip_limit: 3 },
     { id: 3, name: 'In Progress', wip_limit: 2 },
     { id: 4, name: 'Done', wip_limit: null }
   ]);
+
+  const columns = propColumns || localColumns;
+  const setColumns = propSetColumns || setLocalColumns;
 
   const [alert, setAlert] = useState(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -24,7 +27,7 @@ export default function KanbanBoard({ tasks, setTasks }) {
     setTimeout(() => setAlert(null), 4000);
   };
 
-  const handleDragEnd = (result) => {
+  const handleDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
 
@@ -44,31 +47,66 @@ export default function KanbanBoard({ tasks, setTasks }) {
 
     const updatedTasks = tasks.map((t) => (t.id === Number(draggableId) ? { ...t, column_id: destColId } : t));
     setTasks(updatedTasks);
+
+    // Persist move to backend API
+    try {
+      await fetch(`/api/tasks/${draggableId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ column_id: destColId, position: destination.index })
+      });
+    } catch (err) {
+      console.log('Failed to persist task move to server');
+    }
   };
 
-  const handleAddTask = (e) => {
+  const handleAddTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
-    const targetCol = columns.find((c) => c.id === Number(newTaskColumnId));
-    const currentTasks = tasks.filter((t) => t.column_id === Number(newTaskColumnId));
+    const targetColId = Number(newTaskColumnId);
+    const targetCol = columns.find((c) => c.id === targetColId);
+    const currentTasks = tasks.filter((t) => t.column_id === targetColId);
 
     if (targetCol && targetCol.wip_limit !== null && currentTasks.length >= targetCol.wip_limit) {
       showAlert(`⚠️ Cannot add task to "${targetCol.name}". WIP limit of ${targetCol.wip_limit} reached!`);
       return;
     }
 
-    const newTask = {
-      id: Date.now(),
-      column_id: Number(newTaskColumnId),
-      title: newTaskTitle,
+    const newTaskPayload = {
+      column_id: targetColId,
+      title: newTaskTitle.trim(),
       description: '',
       is_urgent: isUrgent,
       is_important: isImportant
     };
 
-    setTasks([...tasks, newTask]);
+    const tempTask = {
+      id: Date.now(),
+      ...newTaskPayload
+    };
+
+    // Optimistically update React state immediately
+    setTasks((prev) => [...prev, tempTask]);
+    const addedTitle = newTaskTitle;
     setNewTaskTitle('');
+
+    // Persist to backend database via REST API
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTaskPayload)
+      });
+      if (res.ok) {
+        const savedTask = await res.json();
+        setTasks((prev) => prev.map((t) => (t.id === tempTask.id ? savedTask : t)));
+      }
+    } catch (err) {
+      console.log('Task saved locally in state');
+    }
+
+    showAlert(`✅ Task "${addedTitle}" added to ${targetCol?.name ?? 'Backlog'}!`);
   };
 
   const handleSaveWipLimit = (colId) => {
@@ -83,9 +121,9 @@ export default function KanbanBoard({ tasks, setTasks }) {
       {alert && (
         <div
           style={{
-            background: '#fff1f2',
-            borderLeft: '4px solid #ff4f00',
-            color: '#201515',
+            background: alert.startsWith('✅') ? '#ecfdf5' : '#fff1f2',
+            borderLeft: `4px solid ${alert.startsWith('✅') ? '#059669' : '#ff4f00'}`,
+            color: alert.startsWith('✅') ? '#065f46' : '#201515',
             padding: '12px 16px',
             borderRadius: '8px',
             marginBottom: '16px',
@@ -129,7 +167,7 @@ export default function KanbanBoard({ tasks, setTasks }) {
         />
         <select
           value={newTaskColumnId}
-          onChange={(e) => setNewTaskColumnId(e.target.value)}
+          onChange={(e) => setNewTaskColumnId(Number(e.target.value))}
           style={{
             padding: '10px',
             borderRadius: '8px',
@@ -175,7 +213,7 @@ export default function KanbanBoard({ tasks, setTasks }) {
       <DragDropContext onDragEnd={handleDragEnd}>
         <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px' }}>
           {columns.map((col) => {
-            const colTasks = tasks.filter((t) => t.column_id === col.id);
+            const colTasks = tasks.filter((t) => Number(t.column_id) === Number(col.id));
             const isFull = col.wip_limit !== null && colTasks.length >= col.wip_limit;
 
             return (
