@@ -63,7 +63,10 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
   const handleAddTask = async (e) => {
     e.preventDefault();
-    if (!newTaskTitle.trim()) return;
+    if (!newTaskTitle.trim()) {
+      showAlert('⚠️ Please enter a task title!');
+      return;
+    }
 
     const targetColId = Number(newTaskColumnId);
     const targetCol = columns.find((c) => c.id === targetColId);
