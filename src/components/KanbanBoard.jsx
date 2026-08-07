@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard.jsx';
+import Toast from './Toast.jsx';
 
 export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
   const [localColumns, setLocalColumns] = useState([
@@ -117,23 +118,8 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
   return (
     <div style={{ padding: '0px' }}>
-      {/* Alert Notification Toast */}
-      {alert && (
-        <div
-          style={{
-            background: alert.startsWith('✅') ? '#ecfdf5' : '#fff1f2',
-            borderLeft: `4px solid ${alert.startsWith('✅') ? '#059669' : '#ff4f00'}`,
-            color: alert.startsWith('✅') ? '#065f46' : '#201515',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            marginBottom: '16px',
-            fontWeight: '600',
-            fontSize: '0.9em'
-          }}
-        >
-          {alert}
-        </div>
-      )}
+      {/* Floating Toast Notification */}
+      <Toast message={alert} />
 
       {/* Add Task Bar */}
       <form
