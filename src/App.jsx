@@ -21,8 +21,8 @@ export default function App() {
       description: 'Setup local wrangler DB',
       is_urgent: 0,
       is_important: 1,
-      schedule_start: '2026-08-07T09:00:00Z',
-      schedule_end: '2026-08-07T10:00:00Z'
+      schedule_start: '2026-08-07T09:00:00',
+      schedule_end: '2026-08-07T10:00:00'
     },
     {
       id: 102,
@@ -31,8 +31,8 @@ export default function App() {
       description: 'Resolve WIP limit bug',
       is_urgent: 1,
       is_important: 1,
-      schedule_start: '2026-08-07T10:00:00Z',
-      schedule_end: '2026-08-07T11:00:00Z'
+      schedule_start: '2026-08-07T10:00:00',
+      schedule_end: '2026-08-07T11:00:00'
     },
     {
       id: 103,
@@ -41,8 +41,8 @@ export default function App() {
       description: 'Add drag and drop grid',
       is_urgent: 0,
       is_important: 1,
-      schedule_start: '2026-08-07T10:30:00Z',
-      schedule_end: '2026-08-07T11:30:00Z'
+      schedule_start: '2026-08-07T10:00:00',
+      schedule_end: '2026-08-07T12:00:00'
     }
   ]);
 

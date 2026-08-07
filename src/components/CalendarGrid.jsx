@@ -89,8 +89,11 @@ export default function CalendarGrid({ tasks }) {
 
           const scheduledTasks = tasks.filter((t) => {
             if (!t.schedule_start) return false;
-            const taskHour = new Date(t.schedule_start).getHours();
-            return taskHour === hour;
+            const startHour = Number(t.schedule_start.split('T')[1]?.split(':')[0]);
+            const endHour = t.schedule_end
+              ? Number(t.schedule_end.split('T')[1]?.split(':')[0])
+              : startHour + 1;
+            return hour >= startHour && hour < endHour;
           });
 
           return (

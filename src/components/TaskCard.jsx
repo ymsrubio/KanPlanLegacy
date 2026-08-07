@@ -15,14 +15,12 @@ export default function TaskCard({ task, index }) {
 
   const formatSchedule = () => {
     if (!task.schedule_start) return null;
-    const startDate = new Date(task.schedule_start);
-    const startHour = startDate.getUTCHours() || startDate.getHours();
+    const startHour = Number(task.schedule_start.split('T')[1]?.split(':')[0]);
     const startLabel = `${startHour > 12 ? startHour - 12 : startHour || 12}:00 ${startHour >= 12 ? 'PM' : 'AM'}`;
 
     if (!task.schedule_end) return `⏱️ ${startLabel}`;
 
-    const endDate = new Date(task.schedule_end);
-    const endHour = endDate.getUTCHours() || endDate.getHours();
+    const endHour = Number(task.schedule_end.split('T')[1]?.split(':')[0]);
     const endLabel = `${endHour > 12 ? endHour - 12 : endHour || 12}:00 ${endHour >= 12 ? 'PM' : 'AM'}`;
 
     return `⏱️ ${startLabel} - ${endLabel}`;

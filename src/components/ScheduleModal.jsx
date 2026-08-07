@@ -12,12 +12,12 @@ export default function ScheduleModal({ isOpen, onClose, onConfirm, task }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Construct ISO start & end timestamps
-    const startIso = `${scheduleDate}T${startTime}:00Z`;
+    // Construct local wall-clock ISO timestamps (no Z offset shift)
+    const startIso = `${scheduleDate}T${startTime}:00`;
     const startHour = Number(startTime.split(':')[0]);
     const endHour = startHour + Number(durationHours);
     const endHourStr = String(endHour).padStart(2, '0');
-    const endIso = `${scheduleDate}T${endHourStr}:00Z`;
+    const endIso = `${scheduleDate}T${endHourStr}:00`;
 
     onConfirm(task, startIso, endIso);
   };
