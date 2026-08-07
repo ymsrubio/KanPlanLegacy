@@ -10,3 +10,11 @@ node_modules/
 AGENTS.md
 skills-lock.json
 docs/agents/
+
+# Teaching & Learning Artifacts (local only)
+MISSION.md
+RESOURCES.md
+NOTES.md
+lessons/
+learning-records/
+reference/
