@@ -7,6 +7,8 @@ import Toast from './Toast.jsx';
 import AddTaskModal from './AddTaskModal.jsx';
 import ScheduleModal from './ScheduleModal.jsx';
 import TaskEditDrawer from './TaskEditDrawer.jsx';
+import PrototypeSwitcher from './prototype/PrototypeSwitcher.jsx';
+import { VariantADrawer, VariantBPushPanel, VariantCCompact } from './prototype/TaskDrawerPrototype.jsx';
 
 export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
   const [localColumns, setLocalColumns] = useState([
@@ -24,6 +26,16 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
   const [schedulingTask, setSchedulingTask] = useState(null);
   const [editingColId, setEditingColId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
+
+  // Prototype variant URL search param state
+  const searchParams = new URLSearchParams(window.location.search);
+  const [variant, setVariant] = useState(searchParams.get('variant') || 'A');
+
+  const handleSelectVariant = (vId) => {
+    setVariant(vId);
+    const newUrl = `${window.location.pathname}?variant=${vId}`;
+    window.history.replaceState(null, '', newUrl);
+  };
 
   const handleSaveEdit = async (updatedTask) => {
     setTasks((prev) => prev.map((t) => (Number(t.id) === Number(updatedTask.id) ? { ...t, ...updatedTask } : t)));
@@ -218,25 +230,18 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
   };
 
   return (
-    <div ref={boardRef} style={{ padding: '0px' }}>
-      {/* Floating Toast Notification */}
-      <Toast message={alert} />
+    <div ref={boardRef} style={{ padding: '0px', display: 'flex', width: '100%' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Floating Toast Notification */}
+        <Toast message={alert} />
 
-      {/* Add Task Pop-up Modal */}
-      <AddTaskModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleAddTaskData}
-        columns={columns}
-      />
-
-      {/* Schedule Time Block Modal */}
-      <ScheduleModal
-        isOpen={Boolean(schedulingTask)}
-        onClose={() => setSchedulingTask(null)}
-        onConfirm={handleConfirmSchedule}
-        task={schedulingTask}
-      />
+        {/* Schedule Time Block Modal */}
+        <ScheduleModal
+          isOpen={Boolean(schedulingTask)}
+          onClose={() => setSchedulingTask(null)}
+          onConfirm={handleConfirmSchedule}
+          task={schedulingTask}
+        />
 
       {/* Primary + Add Task Button */}
       <button
@@ -427,6 +432,57 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         onClose={() => setEditingTask(null)}
         onSave={handleSaveEdit}
         task={editingTask}
+      />
+      </div>
+
+      {/* PROTOTYPE ADD TASK DRAWER VARIANT A */}
+      {variant === 'A' && (
+        <VariantADrawer
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={(taskData) => {
+            handleAddTaskData(taskData);
+            setIsModalOpen(false);
+          }}
+          columns={columns}
+        />
+      )}
+
+      {/* PROTOTYPE ADD TASK DRAWER VARIANT B */}
+      {variant === 'B' && (
+        <VariantBPushPanel
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={(taskData) => {
+            handleAddTaskData(taskData);
+            setIsModalOpen(false);
+          }}
+          columns={columns}
+        />
+      )}
+
+      {/* PROTOTYPE ADD TASK DRAWER VARIANT C */}
+      {variant === 'C' && (
+        <VariantCCompact
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={(taskData) => {
+            handleAddTaskData(taskData);
+            setIsModalOpen(false);
+          }}
+          columns={columns}
+        />
+      )}
+
+      {/* PROTOTYPE FLOATING SWITCHER */}
+      <PrototypeSwitcher
+        variants={[
+          { id: 'A', name: 'Overlay Drawer' },
+          { id: 'B', name: 'Push-Canvas Panel' },
+          { id: 'C', name: 'Speed-Add Narrow' }
+        ]}
+        current={variant}
+        onSelect={handleSelectVariant}
       />
     </div>
   );
