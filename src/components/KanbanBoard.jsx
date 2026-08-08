@@ -191,6 +191,15 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     }
   };
 
+  const [sortBy, setSortBy] = useState('priority-desc'); // 'default' | 'priority-desc' | 'priority-asc'
+  const [filterTier, setFilterTier] = useState('all'); // 'all' | 'critical' | 'high' | 'medium' | 'low'
+
+  const getTaskPriorityScore = (t) => {
+    const urgency = t.urgency_level || (t.is_urgent ? 4 : 2);
+    const importance = t.importance_level || (t.is_important ? 4 : 2);
+    return t.priority_score || (urgency * importance);
+  };
+
   return (
     <div ref={boardRef} style={{ padding: '0px' }}>
       {/* Floating Toast Notification */}
@@ -218,7 +227,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         style={{
           width: '100%',
           padding: '12px',
-          marginBottom: '16px',
+          marginBottom: '12px',
           background: '#ff4f00',
           color: '#fffefb',
           border: 'none',
@@ -229,18 +238,101 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
           boxShadow: '0 2px 4px rgba(255, 79, 0, 0.2)',
           display: 'flex',
           alignItems: 'center',
-          justify: 'center',
+          justifyContent: 'center',
           gap: '8px'
         }}
       >
         <span>➕ Add Task</span>
       </button>
 
+      {/* Filter & Sort Controls */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '16px',
+          background: '#f8f4f0',
+          padding: '10px 12px',
+          borderRadius: '10px',
+          border: '1px solid #c5c0b1',
+          flexWrap: 'wrap',
+          alignItems: 'center'
+        }}
+      >
+        <div style={{ flex: 1, minWidth: '120px' }}>
+          <label style={{ display: 'block', fontSize: '0.75em', fontWeight: '700', color: '#605d52', marginBottom: '2px' }}>
+            Sort Priority
+          </label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              borderRadius: '6px',
+              border: '1px solid #c5c0b1',
+              background: '#fffefb',
+              fontSize: '0.82em',
+              fontWeight: '600',
+              color: '#201515'
+            }}
+          >
+            <option value="priority-desc">🔥 High ➔ Low Priority</option>
+            <option value="priority-asc">📥 Low ➔ High Priority</option>
+            <option value="default">📋 Default Position</option>
+          </select>
+        </div>
+
+        <div style={{ flex: 1, minWidth: '120px' }}>
+          <label style={{ display: 'block', fontSize: '0.75em', fontWeight: '700', color: '#605d52', marginBottom: '2px' }}>
+            Filter Tier
+          </label>
+          <select
+            value={filterTier}
+            onChange={(e) => setFilterTier(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              borderRadius: '6px',
+              border: '1px solid #c5c0b1',
+              background: '#fffefb',
+              fontSize: '0.82em',
+              fontWeight: '600',
+              color: '#201515'
+            }}
+          >
+            <option value="all">All Priorities</option>
+            <option value="critical">🔥 Critical (20-25)</option>
+            <option value="high">🔶 High (15-19)</option>
+            <option value="medium">⚡ Medium (10-14)</option>
+            <option value="low">📥 Low (1-9)</option>
+          </select>
+        </div>
+      </div>
+
       {/* Drag & Drop Board (Vertical Stack) */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
           {columns.map((col) => {
-            const colTasks = tasks.filter((t) => Number(t.column_id) === Number(col.id));
+            let colTasks = tasks.filter((t) => Number(t.column_id) === Number(col.id));
+
+            if (filterTier !== 'all') {
+              colTasks = colTasks.filter((t) => {
+                const score = getTaskPriorityScore(t);
+                if (filterTier === 'critical') return score >= 20;
+                if (filterTier === 'high') return score >= 15 && score < 20;
+                if (filterTier === 'medium') return score >= 10 && score < 15;
+                if (filterTier === 'low') return score < 10;
+                return true;
+              });
+            }
+
+            if (sortBy === 'priority-desc') {
+              colTasks = [...colTasks].sort((a, b) => getTaskPriorityScore(b) - getTaskPriorityScore(a));
+            } else if (sortBy === 'priority-asc') {
+              colTasks = [...colTasks].sort((a, b) => getTaskPriorityScore(a) - getTaskPriorityScore(b));
+            }
+
             const isFull = col.wip_limit !== null && colTasks.length >= col.wip_limit;
 
             return (
