@@ -362,6 +362,7 @@ export default function App() {
           >
             <CalendarGrid
               tasks={tasks}
+              columns={columns}
               onScheduleChange={handleScheduleChange}
               onExternalDrop={handleExternalDrop}
             />

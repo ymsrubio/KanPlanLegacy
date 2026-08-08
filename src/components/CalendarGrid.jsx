@@ -16,13 +16,15 @@ function getPriorityClass(task) {
   return 'priority-low';
 }
 
-export default function CalendarGrid({ tasks, onScheduleChange, onExternalDrop }) {
+export default function CalendarGrid({ tasks, columns = [], onScheduleChange, onExternalDrop }) {
+  const doneCol = columns.find((c) => c.name === 'Done');
+
   // Convert tasks → FullCalendar events
   const events = useMemo(() => {
     return tasks
       .filter((t) => t.schedule_start)
       .map((t) => {
-        const isDone = Number(t.column_id) === 4;
+        const isDone = doneCol ? Number(t.column_id) === Number(doneCol.id) : false;
         const priorityClass = getPriorityClass(t);
         return {
           id: String(t.id),
@@ -38,7 +40,7 @@ export default function CalendarGrid({ tasks, onScheduleChange, onExternalDrop }
           }
         };
       });
-  }, [tasks]);
+  }, [tasks, doneCol]);
 
   // On-calendar drag to reschedule
   const handleEventDrop = (info) => {
