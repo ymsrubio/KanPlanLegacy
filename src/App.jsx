@@ -149,7 +149,7 @@ export default function App() {
     if (!wipSwapState) return;
 
     const backlogCol = columns.find((c) => c.name === 'Backlog');
-    const backlogId = backlogCol ? backlogCol.id : 1;
+    const backlogId = backlogCol ? backlogCol.id : (columns[0] ? columns[0].id : 1);
 
     setTasks((prev) =>
       prev.map((t) =>

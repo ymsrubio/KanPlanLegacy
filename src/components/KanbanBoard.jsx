@@ -15,7 +15,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     { id: 4, name: 'Done', wip_limit: null }
   ]);
 
-  const columns = propColumns || localColumns;
+  const columns = (propColumns && propColumns.length > 0) ? propColumns : localColumns;
   const setColumns = propSetColumns || setLocalColumns;
 
   const [alert, setAlert] = useState(null);
@@ -57,7 +57,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     const destColId = Number(destination.droppableId);
     if (sourceColId === destColId && source.index === destination.index) return;
 
-    const destCol = columns.find((c) => c.id === destColId);
+    const destCol = columns.find((c) => Number(c.id) === destColId);
     const currentDestTasks = tasks.filter((t) => Number(t.column_id) === destColId);
 
     if (sourceColId !== destColId && destCol && destCol.wip_limit !== null) {
@@ -69,7 +69,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
     const draggedTask = tasks.find((t) => Number(t.id) === Number(draggableId));
     const readyCol = columns.find((c) => c.name === 'Ready to Start');
-    const isReadyCol = (readyCol && destColId === readyCol.id) || destCol?.name === 'Ready to Start';
+    const isReadyCol = (readyCol && destColId === Number(readyCol.id)) || (destCol && destCol.name === 'Ready to Start');
 
     // Intercept move to Ready to Start if not yet scheduled
     if (isReadyCol && draggedTask && !draggedTask.schedule_start) {
