@@ -8,7 +8,7 @@ import AddTaskModal from './AddTaskModal.jsx';
 import ScheduleModal from './ScheduleModal.jsx';
 import TaskEditDrawer from './TaskEditDrawer.jsx';
 import PrototypeSwitcher from './prototype/PrototypeSwitcher.jsx';
-import { VariantADrawer, VariantBPushPanel, VariantCCompact } from './prototype/TaskDrawerPrototype.jsx';
+import { VariantA1Unblurred, VariantA2ColumnExtension, VariantA3ElevatedPill } from './prototype/TaskDrawerPrototype.jsx';
 
 export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
   const [localColumns, setLocalColumns] = useState([
@@ -435,9 +435,9 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       />
       </div>
 
-      {/* PROTOTYPE ADD TASK DRAWER VARIANT A */}
+      {/* PROTOTYPE ADD TASK VARIANT A1: Un-Blurred Floating Card Panel */}
       {variant === 'A' && (
-        <VariantADrawer
+        <VariantA1Unblurred
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={(taskData) => {
@@ -448,9 +448,9 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         />
       )}
 
-      {/* PROTOTYPE ADD TASK DRAWER VARIANT B */}
+      {/* PROTOTYPE ADD TASK VARIANT A2: Column Card Extension */}
       {variant === 'B' && (
-        <VariantBPushPanel
+        <VariantA2ColumnExtension
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={(taskData) => {
@@ -461,9 +461,9 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         />
       )}
 
-      {/* PROTOTYPE ADD TASK DRAWER VARIANT C */}
+      {/* PROTOTYPE ADD TASK VARIANT A3: Elevated Inspector Pill Card */}
       {variant === 'C' && (
-        <VariantCCompact
+        <VariantA3ElevatedPill
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={(taskData) => {
@@ -477,9 +477,9 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       {/* PROTOTYPE FLOATING SWITCHER */}
       <PrototypeSwitcher
         variants={[
-          { id: 'A', name: 'Overlay Drawer' },
-          { id: 'B', name: 'Push-Canvas Panel' },
-          { id: 'C', name: 'Speed-Add Narrow' }
+          { id: 'A', name: 'A1: Un-Blurred Floating Card' },
+          { id: 'B', name: 'A2: Column Card Extension' },
+          { id: 'C', name: 'A3: Elevated Inspector Pill' }
         ]}
         current={variant}
         onSelect={handleSelectVariant}
