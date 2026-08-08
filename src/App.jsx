@@ -3,50 +3,17 @@ import React, { useState, useEffect } from 'react';
 import KanbanBoard from './components/KanbanBoard.jsx';
 import CalendarGrid from './components/CalendarGrid.jsx';
 import WipSwapModal from './components/WipSwapModal.jsx';
-import Toast from './components/Toast.jsx';
+import LoginPage from './components/LoginPage.jsx';
+import UserMenu from './components/UserMenu.jsx';
 
 export default function App() {
+  // Auth state
+  const [authState, setAuthState] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
+  const [user, setUser] = useState(null);
+
   const [layoutMode, setLayoutMode] = useState('split');
-
-  const [columns, setColumns] = useState([
-    { id: 1, name: 'Backlog', wip_limit: null },
-    { id: 2, name: 'Ready to Start', wip_limit: 3 },
-    { id: 3, name: 'In Progress', wip_limit: 2 },
-    { id: 4, name: 'Done', wip_limit: null }
-  ]);
-
-  const [tasks, setTasks] = useState([
-    {
-      id: 101,
-      column_id: 1,
-      title: 'Explore Cloudflare D1',
-      description: 'Setup local wrangler DB',
-      is_urgent: 0,
-      is_important: 1,
-      schedule_start: '2026-08-07T09:00:00',
-      schedule_end: '2026-08-07T10:00:00'
-    },
-    {
-      id: 102,
-      column_id: 2,
-      title: 'Fix Express Endpoint',
-      description: 'Resolve WIP limit bug',
-      is_urgent: 1,
-      is_important: 1,
-      schedule_start: '2026-08-07T10:00:00',
-      schedule_end: '2026-08-07T11:00:00'
-    },
-    {
-      id: 103,
-      column_id: 2,
-      title: 'Time-block Calendar',
-      description: 'Add drag and drop grid',
-      is_urgent: 0,
-      is_important: 1,
-      schedule_start: '2026-08-07T10:00:00',
-      schedule_end: '2026-08-07T12:00:00'
-    }
-  ]);
+  const [columns, setColumns] = useState([]);
+  const [tasks, setTasks] = useState([]);
 
   // WIP swap modal state
   const [wipSwapState, setWipSwapState] = useState(null);
@@ -57,17 +24,49 @@ export default function App() {
     setTimeout(() => setCalendarAlert(null), 4000);
   };
 
+  // Check auth on mount
   useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error('Unauthorized');
+      })
+      .then((data) => {
+        setUser(data);
+        setAuthState('authenticated');
+      })
+      .catch(() => {
+        setAuthState('unauthenticated');
+      });
+  }, []);
+
+  // Load data once authenticated
+  useEffect(() => {
+    if (authState !== 'authenticated') return;
+
     fetch('/api/columns')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setColumns(data))
-      .catch(() => console.log('Using local columns fallback'));
+      .catch(() => console.log('Failed to fetch columns'));
 
     fetch('/api/tasks')
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data && data.length > 0 && setTasks(data))
-      .catch(() => console.log('Using local tasks fallback'));
-  }, []);
+      .then((data) => data && setTasks(data))
+      .catch(() => console.log('Failed to fetch tasks'));
+  }, [authState]);
+
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (err) {
+      // Best-effort
+    }
+    setUser(null);
+    setColumns([]);
+    setTasks([]);
+    setAuthState('unauthenticated');
+  };
 
   // Calendar: on-calendar drag-to-reschedule or resize
   const handleScheduleChange = async (taskId, startIso, endIso) => {
@@ -92,8 +91,8 @@ export default function App() {
 
   // Calendar: external drop from Kanban
   const handleExternalDrop = (taskId, startIso, endIso) => {
-    const readyToStartCol = columns.find((c) => c.id === 2);
-    const readyTasks = tasks.filter((t) => Number(t.column_id) === 2);
+    const readyToStartCol = columns.find((c) => c.name === 'Ready to Start');
+    const readyTasks = readyToStartCol ? tasks.filter((t) => Number(t.column_id) === readyToStartCol.id) : [];
     const task = tasks.find((t) => Number(t.id) === taskId);
 
     if (!task) return;
@@ -102,28 +101,28 @@ export default function App() {
     if (
       readyToStartCol &&
       readyToStartCol.wip_limit !== null &&
-      Number(task.column_id) !== 2 &&
+      Number(task.column_id) !== readyToStartCol.id &&
       readyTasks.length >= readyToStartCol.wip_limit
     ) {
-      // WIP full — open swap modal
       setWipSwapState({
         pendingTask: task,
         startIso,
         endIso,
-        readyTasks
+        readyTasks,
+        readyToStartCol
       });
       return;
     }
 
-    // Move task to Ready to Start + schedule it
-    completeExternalDrop(task, startIso, endIso);
+    completeExternalDrop(task, startIso, endIso, readyToStartCol);
   };
 
-  const completeExternalDrop = async (task, startIso, endIso) => {
+  const completeExternalDrop = async (task, startIso, endIso, readyToStartCol) => {
+    const targetColId = readyToStartCol ? readyToStartCol.id : task.column_id;
     setTasks((prev) =>
       prev.map((t) =>
         Number(t.id) === Number(task.id)
-          ? { ...t, column_id: 2, schedule_start: startIso, schedule_end: endIso }
+          ? { ...t, column_id: targetColId, schedule_start: startIso, schedule_end: endIso }
           : t
       )
     );
@@ -133,7 +132,7 @@ export default function App() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          column_id: 2,
+          column_id: targetColId,
           schedule_start: startIso,
           schedule_end: endIso
         })
@@ -149,11 +148,13 @@ export default function App() {
   const handleWipSwap = async (swapTaskId) => {
     if (!wipSwapState) return;
 
-    // Move the swapped task back to Backlog (column 1) and clear its schedule
+    const backlogCol = columns.find((c) => c.name === 'Backlog');
+    const backlogId = backlogCol ? backlogCol.id : 1;
+
     setTasks((prev) =>
       prev.map((t) =>
         Number(t.id) === swapTaskId
-          ? { ...t, column_id: 1, schedule_start: null, schedule_end: null }
+          ? { ...t, column_id: backlogId, schedule_start: null, schedule_end: null }
           : t
       )
     );
@@ -162,7 +163,7 @@ export default function App() {
       await fetch(`/api/tasks/${swapTaskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: 1, schedule_start: null, schedule_end: null })
+        body: JSON.stringify({ column_id: backlogId, schedule_start: null, schedule_end: null })
       });
     } catch (err) {
       console.log('Failed to persist swap to server');
@@ -171,11 +172,40 @@ export default function App() {
     const swappedTask = tasks.find((t) => Number(t.id) === swapTaskId);
     showCalendarAlert(`↩️ "${swappedTask?.title}" moved back to Backlog.`);
 
-    // Now complete the pending external drop
-    await completeExternalDrop(wipSwapState.pendingTask, wipSwapState.startIso, wipSwapState.endIso);
+    await completeExternalDrop(wipSwapState.pendingTask, wipSwapState.startIso, wipSwapState.endIso, wipSwapState.readyToStartCol);
     setWipSwapState(null);
   };
 
+  // --- Render ---
+
+  // Loading state
+  if (authState === 'loading') {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#fffefb',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          color: '#605d52'
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2em', marginBottom: '12px' }}>🎯</div>
+          <div style={{ fontWeight: '600' }}>Loading KanPlan...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Unauthenticated — show login page
+  if (authState === 'unauthenticated') {
+    return <LoginPage />;
+  }
+
+  // Authenticated — show board
   return (
     <div
       style={{
@@ -226,7 +256,7 @@ export default function App() {
       <header
         style={{
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '16px',
@@ -247,60 +277,65 @@ export default function App() {
           </p>
         </div>
 
-        {/* View Mode Toggle */}
-        <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '4px', borderRadius: '12px', border: '1px solid #c5c0b1' }}>
-          <button
-            onClick={() => setLayoutMode('split')}
-            style={{
-              border: 'none',
-              background: layoutMode === 'split' ? '#ff4f00' : 'transparent',
-              color: layoutMode === 'split' ? '#fffefb' : '#201515',
-              fontWeight: '600',
-              padding: '6px 14px',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '0.85em',
-              transition: 'background 0.2s'
-            }}
-          >
-            📊 Split View
-          </button>
-          <button
-            onClick={() => setLayoutMode('kanban')}
-            style={{
-              border: 'none',
-              background: layoutMode === 'kanban' ? '#ff4f00' : 'transparent',
-              color: layoutMode === 'kanban' ? '#fffefb' : '#201515',
-              fontWeight: '600',
-              padding: '6px 14px',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '0.85em',
-              transition: 'background 0.2s'
-            }}
-          >
-            📋 Kanban Only
-          </button>
-          <button
-            onClick={() => setLayoutMode('calendar')}
-            style={{
-              border: 'none',
-              background: layoutMode === 'calendar' ? '#ff4f00' : 'transparent',
-              color: layoutMode === 'calendar' ? '#fffefb' : '#201515',
-              fontWeight: '600',
-              padding: '6px 14px',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '0.85em',
-              transition: 'background 0.2s'
-            }}
-          >
-            📅 Calendar Only
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* View Mode Toggle */}
+          <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '4px', borderRadius: '12px', border: '1px solid #c5c0b1' }}>
+            <button
+              onClick={() => setLayoutMode('split')}
+              style={{
+                border: 'none',
+                background: layoutMode === 'split' ? '#ff4f00' : 'transparent',
+                color: layoutMode === 'split' ? '#fffefb' : '#201515',
+                fontWeight: '600',
+                padding: '6px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '0.85em',
+                transition: 'background 0.2s'
+              }}
+            >
+              📊 Split View
+            </button>
+            <button
+              onClick={() => setLayoutMode('kanban')}
+              style={{
+                border: 'none',
+                background: layoutMode === 'kanban' ? '#ff4f00' : 'transparent',
+                color: layoutMode === 'kanban' ? '#fffefb' : '#201515',
+                fontWeight: '600',
+                padding: '6px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '0.85em',
+                transition: 'background 0.2s'
+              }}
+            >
+              📋 Kanban Only
+            </button>
+            <button
+              onClick={() => setLayoutMode('calendar')}
+              style={{
+                border: 'none',
+                background: layoutMode === 'calendar' ? '#ff4f00' : 'transparent',
+                color: layoutMode === 'calendar' ? '#fffefb' : '#201515',
+                fontWeight: '600',
+                padding: '6px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '0.85em',
+                transition: 'background 0.2s'
+              }}
+            >
+              📅 Calendar Only
+            </button>
+          </div>
+
+          {/* User profile menu */}
+          {user && <UserMenu user={user} onLogout={handleLogout} />}
         </div>
       </header>
 
-      {/* Main Workspace (Full Viewport Flex Container) */}
+      {/* Main Workspace */}
       <main style={{ flex: 1, minHeight: 0, display: 'flex', gap: '20px', alignItems: 'stretch', overflow: 'hidden' }}>
         {(layoutMode === 'split' || layoutMode === 'kanban') && (
           <div

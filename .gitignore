@@ -1,6 +1,6 @@
 .env
-typing.sql
-postgres-data/
+.dev.vars
+dist/
 node_modules/
 
 # Agent & AI Tooling (local only)

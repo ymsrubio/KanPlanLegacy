@@ -1,15 +1,35 @@
 -- db/schema.sql
 -- Database schema for KanPlan (Cloudflare D1 / SQLite)
+-- Clean break: account-scoped tables with row-level isolation
+
+CREATE TABLE IF NOT EXISTS accounts (
+  id TEXT PRIMARY KEY,
+  google_id TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL,
+  name TEXT NOT NULL,
+  avatar_url TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS columns (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
   position INTEGER NOT NULL,
-  wip_limit INTEGER DEFAULT NULL
+  wip_limit INTEGER DEFAULT NULL,
+  UNIQUE(account_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   column_id INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
@@ -24,11 +44,3 @@ CREATE TABLE IF NOT EXISTS tasks (
   position INTEGER NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-
--- Seed initial default columns idempotently
-INSERT INTO columns (id, name, position, wip_limit) VALUES 
-  (1, 'Backlog', 0, NULL),
-  (2, 'Ready to Start', 1, 3),
-  (3, 'In Progress', 2, 2),
-  (4, 'Done', 3, NULL)
-ON CONFLICT(id) DO NOTHING;

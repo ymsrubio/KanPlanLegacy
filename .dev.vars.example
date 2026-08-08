@@ -1,0 +1,9 @@
+# .dev.vars — Local development secrets for wrangler pages dev
+# Copy this to .dev.vars and fill in your Google OAuth credentials.
+# Get these from https://console.cloud.google.com/apis/credentials
+#
+# NEVER commit .dev.vars to version control.
+
+GOOGLE_CLIENT_ID=your-google-client-id-here.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret-here
+APP_URL=http://localhost:8788

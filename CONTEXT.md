@@ -29,3 +29,9 @@ KanPlan is a personal productivity web application that merges **Agile Kanban WI
 - **Split View**: Side-by-side view featuring the Kanban board on the left and the Day/Week Calendar grid on the right.
 - **Kanban View**: Full-screen focused Kanban board.
 - **Calendar View**: Full-screen focused Day/Week calendar grid.
+- **Login Page**: A dedicated `/login` route displaying a "Sign in with Google" button. Unauthenticated users are redirected here.
+
+### Authentication & Accounts
+- **Account**: A registered user identity, created automatically on first Google OAuth sign-in. Stored in the `accounts` table with Google-provided profile data (google_id, email, name, avatar_url).
+- **Session**: A server-side record linking an HTTP-only cookie token to an Account. Stored in the D1 `sessions` table. All API requests require a valid session.
+- **Row-Level Isolation**: Every `tasks` and `columns` row carries an `account_id` foreign key. All queries filter by the authenticated Account — one shared D1 database, logically isolated per user.
