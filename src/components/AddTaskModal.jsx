@@ -4,6 +4,7 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
   const defaultColId = columns?.[0]?.id;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [columnId, setColumnId] = useState(defaultColId);
   const [urgencyLevel, setUrgencyLevel] = useState(3);
   const [importanceLevel, setImportanceLevel] = useState(3);
@@ -24,6 +25,7 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
     onSubmit({
       title,
       description,
+      deadline,
       column_id: targetColId,
       is_urgent: urgencyLevel >= 4 ? 1 : 0,
       is_important: importanceLevel >= 4 ? 1 : 0,
@@ -34,6 +36,7 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
 
     setTitle('');
     setDescription('');
+    setDeadline('');
     setColumnId(columns?.[0]?.id);
     setUrgencyLevel(3);
     setImportanceLevel(3);
@@ -132,6 +135,28 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
                 boxSizing: 'border-box',
                 resize: 'vertical',
                 fontFamily: 'inherit'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '600', marginBottom: '6px', color: '#36342e' }}>
+              Due Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid #c5c0b1',
+                outline: 'none',
+                fontSize: '0.95em',
+                background: '#fffefb',
+                color: '#201515',
+                boxSizing: 'border-box'
               }}
             />
           </div>

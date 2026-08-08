@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
-import { createTask, moveTask, deleteTask } from '../lib/task-service.js';
+import { createTask, moveTask, deleteTask, calculateEscalatedUrgency } from '../lib/task-service.js';
 import { findOrCreateAccount } from '../lib/auth-service.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -159,4 +159,27 @@ test('deleteTask throws for nonexistent task ID', () => {
     () => deleteTask(db, accountId, 99999),
     { message: 'Task not found' }
   );
+});
+
+// --- Urgency Escalation ---
+
+test('calculateEscalatedUrgency escalates to 5 when <= 1 day remains', () => {
+  const now = new Date('2026-08-08T12:00:00Z').getTime();
+  const deadline = '2026-08-09T00:00:00Z'; // 12 hours away
+  const escalated = calculateEscalatedUrgency(2, deadline, now);
+  assert.equal(escalated, 5);
+});
+
+test('calculateEscalatedUrgency escalates +1 (min 4) when <= 3 days remain', () => {
+  const now = new Date('2026-08-08T12:00:00Z').getTime();
+  const deadline = '2026-08-10T12:00:00Z'; // 2 days away
+  const escalated = calculateEscalatedUrgency(2, deadline, now);
+  assert.equal(escalated, 4);
+});
+
+test('calculateEscalatedUrgency preserves base urgency when > 3 days remain', () => {
+  const now = new Date('2026-08-08T12:00:00Z').getTime();
+  const deadline = '2026-08-15T12:00:00Z'; // 7 days away
+  const escalated = calculateEscalatedUrgency(2, deadline, now);
+  assert.equal(escalated, 2);
 });

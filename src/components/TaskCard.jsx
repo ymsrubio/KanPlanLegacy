@@ -9,9 +9,10 @@ export default function TaskCard({ task, index, onDelete }) {
   const priorityScore = task.priority_score || (urgency * importance);
 
   const getBadge = () => {
-    if (priorityScore >= 16) return { label: `🔥 Priority: ${priorityScore}`, bg: '#ffe4e6', color: '#9f1239' };
-    if (priorityScore >= 10) return { label: `⚡ Priority: ${priorityScore}`, bg: '#e0e7ff', color: '#3730a3' };
-    return { label: `📥 Priority: ${priorityScore}`, bg: '#f1f5f9', color: '#334155' };
+    if (priorityScore >= 20) return { label: `🔥 Critical: ${priorityScore}`, bg: '#ffe4e6', color: '#9f1239', border: '#e11d48', tint: '#fff1f2' };
+    if (priorityScore >= 15) return { label: `🔶 High: ${priorityScore}`, bg: '#fff7ed', color: '#c2410c', border: '#f97316', tint: '#fff7ed' };
+    if (priorityScore >= 10) return { label: `⚡ Medium: ${priorityScore}`, bg: '#fefce8', color: '#a16207', border: '#eab308', tint: '#fefce8' };
+    return { label: `📥 Low: ${priorityScore}`, bg: '#f1f5f9', color: '#334155', border: '#94a3b8', tint: '#ffffff' };
   };
 
   const formatSchedule = () => {
@@ -71,20 +72,24 @@ export default function TaskCard({ task, index, onDelete }) {
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           style={{
-            background: snapshot.isDragging ? '#ffffff' : '#ffffff',
+            background: snapshot.isDragging ? '#ffffff' : badge.tint,
             opacity: 1,
             borderRadius: '8px',
             padding: '12px',
+            paddingLeft: '16px',
             marginBottom: '10px',
             boxShadow: snapshot.isDragging
               ? '0 14px 28px rgba(32, 21, 21, 0.22), 0 6px 10px rgba(32, 21, 21, 0.14)'
               : '0 1px 3px rgba(0,0,0,0.08)',
-            border: snapshot.isDragging ? '2px solid #ff4f00' : '1px solid #c5c0b1',
+            borderLeft: `4px solid ${badge.border}`,
+            borderTop: snapshot.isDragging ? '2px solid #ff4f00' : '1px solid #c5c0b1',
+            borderRight: snapshot.isDragging ? '2px solid #ff4f00' : '1px solid #c5c0b1',
+            borderBottom: snapshot.isDragging ? '2px solid #ff4f00' : '1px solid #c5c0b1',
             cursor: 'grab',
             userSelect: 'none',
             WebkitUserSelect: 'none',
             zIndex: snapshot.isDragging ? 99999 : 'auto',
-            transition: 'box-shadow 0.2s, border 0.2s',
+            transition: 'box-shadow 0.2s, border 0.2s, background 0.2s',
             position: 'relative',
             ...provided.draggableProps.style
           }}
@@ -140,6 +145,23 @@ export default function TaskCard({ task, index, onDelete }) {
             >
               {badge.label}
             </span>
+
+            {task.deadline && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.75em',
+                  fontWeight: '600',
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1'
+                }}
+              >
+                📅 Due: {task.deadline}
+              </span>
+            )}
 
             {/* Dedicated handle for dragging directly onto FullCalendar */}
             <span

@@ -139,7 +139,8 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       is_urgent: taskData.is_urgent,
       is_important: taskData.is_important,
       urgency_level: taskData.urgency_level,
-      importance_level: taskData.importance_level
+      importance_level: taskData.importance_level,
+      deadline: taskData.deadline || null
     };
 
     const tempTask = {
