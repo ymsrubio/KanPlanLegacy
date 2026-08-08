@@ -1,11 +1,15 @@
 // tests/column-service.test.js
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const Database = require('better-sqlite3');
-const { createColumn, updateColumn, deleteColumn } = require('../lib/column-service');
-const { findOrCreateAccount } = require('../lib/auth-service');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import { createColumn, updateColumn, deleteColumn } from '../lib/column-service.js';
+import { findOrCreateAccount } from '../lib/auth-service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function setupTestDb() {
   const db = new Database(':memory:');

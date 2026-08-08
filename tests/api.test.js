@@ -1,17 +1,20 @@
 // tests/api.test.js
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const Database = require('better-sqlite3');
-const { createTask, moveTask } = require('../lib/task-service');
-const { findOrCreateAccount } = require('../lib/auth-service');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import { createTask, moveTask } from '../lib/task-service.js';
+import { findOrCreateAccount } from '../lib/auth-service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function setupTestDb() {
   const db = new Database(':memory:');
   const schemaSql = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
   db.exec(schemaSql);
-  // Create a test account (seeds default columns)
   const account = findOrCreateAccount(db, { google_id: 'test-api', email: 'api@test.com', name: 'API Test' });
   return { db, accountId: account.id };
 }
