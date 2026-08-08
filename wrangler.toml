@@ -7,4 +7,4 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "kanplan_db"
-database_id = "local-kanplan-db"
+database_id = "c8457caa-904a-4b61-b1ca-1eae6d42628c"
