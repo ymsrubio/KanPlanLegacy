@@ -68,10 +68,12 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     }
 
     const draggedTask = tasks.find((t) => Number(t.id) === Number(draggableId));
+    const readyCol = columns.find((c) => c.name === 'Ready to Start');
+    const isReadyCol = (readyCol && destColId === readyCol.id) || destCol?.name === 'Ready to Start';
 
-    // Intercept move to Ready to Start (Column 2) if not yet scheduled
-    if (destColId === 2 && draggedTask && !draggedTask.schedule_start) {
-      setSchedulingTask({ ...draggedTask, targetPosition: destination.index });
+    // Intercept move to Ready to Start if not yet scheduled
+    if (isReadyCol && draggedTask && !draggedTask.schedule_start) {
+      setSchedulingTask({ ...draggedTask, targetColumnId: destColId, targetPosition: destination.index });
       return;
     }
 
@@ -91,9 +93,12 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
   };
 
   const handleConfirmSchedule = async (taskToSchedule, startIso, endIso) => {
+    const readyCol = columns.find((c) => c.name === 'Ready to Start');
+    const targetColId = taskToSchedule.targetColumnId || readyCol?.id || 2;
+
     const updatedTasks = tasks.map((t) =>
       Number(t.id) === Number(taskToSchedule.id)
-        ? { ...t, column_id: 2, schedule_start: startIso, schedule_end: endIso }
+        ? { ...t, column_id: targetColId, schedule_start: startIso, schedule_end: endIso }
         : t
     );
     setTasks(updatedTasks);
@@ -104,7 +109,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          column_id: 2,
+          column_id: targetColId,
           schedule_start: startIso,
           schedule_end: endIso,
           position: taskToSchedule.targetPosition || 0
