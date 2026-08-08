@@ -6,6 +6,8 @@ import TaskCard from './TaskCard.jsx';
 import Toast from './Toast.jsx';
 import AddTaskModal from './AddTaskModal.jsx';
 import ScheduleModal from './ScheduleModal.jsx';
+import PrototypeSwitcher from './prototype/PrototypeSwitcher.jsx';
+import { VariantAModal, VariantBDrawer, VariantCInline } from './prototype/TaskEditPrototype.jsx';
 
 export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
   const [localColumns, setLocalColumns] = useState([
@@ -22,7 +24,35 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [schedulingTask, setSchedulingTask] = useState(null);
   const [editingColId, setEditingColId] = useState(null);
-  const [editWipLimit, setEditWipLimit] = useState('');
+  const [editingTask, setEditingTask] = useState(null);
+  const [inlineEditingId, setInlineEditingId] = useState(null);
+
+  // Prototype variant URL search param state
+  const searchParams = new URLSearchParams(window.location.search);
+  const [variant, setVariant] = useState(searchParams.get('variant') || 'A');
+
+  const handleSelectVariant = (vId) => {
+    setVariant(vId);
+    const newUrl = `${window.location.pathname}?variant=${vId}`;
+    window.history.replaceState(null, '', newUrl);
+  };
+
+  const handleSaveEdit = async (updatedTask) => {
+    setTasks((prev) => prev.map((t) => (Number(t.id) === Number(updatedTask.id) ? { ...t, ...updatedTask } : t)));
+    setEditingTask(null);
+    setInlineEditingId(null);
+    showAlert(`✏️ Task "${updatedTask.title}" updated!`);
+
+    try {
+      await fetch(`/api/tasks/${updatedTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTask)
+      });
+    } catch {
+      // Best-effort
+    }
+  };
 
   // Ref for FullCalendar external Draggable registration
   const boardRef = useRef(null);
@@ -385,9 +415,34 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
                     </div>
 
                     <div style={{ minHeight: '60px' }}>
-                      {colTasks.map((task, index) => (
-                        <TaskCard key={task.id} task={task} index={index} onDelete={handleDeleteTask} />
-                      ))}
+                      {colTasks.map((task, index) => {
+                        if (variant === 'C' && inlineEditingId === task.id) {
+                          return (
+                            <VariantCInline
+                              key={task.id}
+                              task={task}
+                              onSave={handleSaveEdit}
+                              onCancel={() => setInlineEditingId(null)}
+                            />
+                          );
+                        }
+
+                        return (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            index={index}
+                            onDelete={handleDeleteTask}
+                            onEdit={(t) => {
+                              if (variant === 'C') {
+                                setInlineEditingId(t.id);
+                              } else {
+                                setEditingTask(t);
+                              }
+                            }}
+                          />
+                        );
+                      })}
                       {provided.placeholder}
                     </div>
                   </div>
@@ -397,6 +452,37 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
           })}
         </div>
       </DragDropContext>
+
+      {/* PROTOTYPE VARIANT A: Centered Modal */}
+      {variant === 'A' && (
+        <VariantAModal
+          isOpen={Boolean(editingTask)}
+          onClose={() => setEditingTask(null)}
+          onSave={handleSaveEdit}
+          task={editingTask}
+        />
+      )}
+
+      {/* PROTOTYPE VARIANT B: Slide-Over Drawer */}
+      {variant === 'B' && (
+        <VariantBDrawer
+          isOpen={Boolean(editingTask)}
+          onClose={() => setEditingTask(null)}
+          onSave={handleSaveEdit}
+          task={editingTask}
+        />
+      )}
+
+      {/* PROTOTYPE FLOATING SWITCHER */}
+      <PrototypeSwitcher
+        variants={[
+          { id: 'A', name: 'Modal + Preview' },
+          { id: 'B', name: 'Slide-Over Drawer' },
+          { id: 'C', name: 'Inline Quick-Edit' }
+        ]}
+        current={variant}
+        onSelect={handleSelectVariant}
+      />
     </div>
   );
 }

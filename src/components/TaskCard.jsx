@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 
-export default function TaskCard({ task, index, onDelete }) {
+export default function TaskCard({ task, index, onDelete, onEdit }) {
   const [hovered, setHovered] = useState(false);
   const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
   const importance = task.importance_level || (task.is_important ? 4 : 2);
@@ -94,35 +94,56 @@ export default function TaskCard({ task, index, onDelete }) {
             ...provided.draggableProps.style
           }}
         >
-          {/* Delete button — visible on hover */}
-          {hovered && onDelete && (
-            <button
-              onClick={handleDeleteClick}
-              title="Delete task"
-              style={{
-                position: 'absolute',
-                top: '6px',
-                right: '6px',
-                background: '#fee2e2',
-                border: '1px solid #fecaca',
-                borderRadius: '6px',
-                width: '24px',
-                height: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '0.75em',
-                color: '#dc2626',
-                padding: 0,
-                lineHeight: 1,
-                transition: 'background 0.15s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#fca5a5'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
-            >
-              🗑️
-            </button>
+          {/* Hover Action Buttons */}
+          {hovered && (
+            <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px' }}>
+              {onEdit && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+                  title="Edit task"
+                  style={{
+                    background: '#e0e7ff',
+                    border: '1px solid #c7d2fe',
+                    borderRadius: '6px',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '0.75em',
+                    color: '#3730a3',
+                    padding: 0,
+                    lineHeight: 1
+                  }}
+                >
+                  ✏️
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={handleDeleteClick}
+                  title="Delete task"
+                  style={{
+                    background: '#fee2e2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '6px',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '0.75em',
+                    color: '#dc2626',
+                    padding: 0,
+                    lineHeight: 1
+                  }}
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
           )}
 
           <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em', paddingRight: hovered ? '28px' : '0' }}>{task.title}</div>
