@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
-import { createTask, moveTask } from '../lib/task-service.js';
+import { createTask, moveTask, deleteTask } from '../lib/task-service.js';
 import { findOrCreateAccount } from '../lib/auth-service.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -117,4 +117,46 @@ test('WIP limits are enforced per-account independently', () => {
   // B should still be able to add to their own Ready to Start
   const bTask = createTask(db, accountB.id, { column_id: readyB, title: 'B1' });
   assert.ok(bTask.id, 'Account B can add tasks despite A being at WIP limit');
+});
+
+// --- Task Deletion ---
+
+test('deleteTask removes a task owned by the account', () => {
+  const { db, accountId } = setupTestDb();
+  const backlogId = getColumnId(db, accountId, 'Backlog');
+  const task = createTask(db, accountId, { column_id: backlogId, title: 'Delete Me' });
+
+  deleteTask(db, accountId, task.id);
+
+  const remaining = db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').get(task.id, accountId);
+  assert.equal(remaining, undefined, 'Task should be deleted');
+});
+
+test('deleteTask throws when task belongs to another account', () => {
+  const db = new Database(':memory:');
+  const schemaSql = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
+  db.exec(schemaSql);
+
+  const accountA = findOrCreateAccount(db, { google_id: 'del-a', email: 'del-a@test.com', name: 'Del A' });
+  const accountB = findOrCreateAccount(db, { google_id: 'del-b', email: 'del-b@test.com', name: 'Del B' });
+
+  const backlogA = db.prepare('SELECT id FROM columns WHERE account_id = ? AND name = ?').get(accountA.id, 'Backlog').id;
+  const task = createTask(db, accountA.id, { column_id: backlogA, title: 'A Secret' });
+
+  assert.throws(
+    () => deleteTask(db, accountB.id, task.id),
+    { message: 'Task not found' }
+  );
+
+  // Task still exists for account A
+  const still = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id);
+  assert.ok(still, 'Task should still exist for account A');
+});
+
+test('deleteTask throws for nonexistent task ID', () => {
+  const { db, accountId } = setupTestDb();
+  assert.throws(
+    () => deleteTask(db, accountId, 99999),
+    { message: 'Task not found' }
+  );
 });

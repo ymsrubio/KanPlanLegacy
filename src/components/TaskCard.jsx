@@ -1,8 +1,9 @@
 // src/components/TaskCard.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 
-export default function TaskCard({ task, index }) {
+export default function TaskCard({ task, index, onDelete }) {
+  const [hovered, setHovered] = useState(false);
   const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
   const importance = task.importance_level || (task.is_important ? 4 : 2);
   const priorityScore = task.priority_score || (urgency * importance);
@@ -51,6 +52,11 @@ export default function TaskCard({ task, index }) {
     }
   };
 
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    if (onDelete) onDelete(task.id, task.title);
+  };
+
   return (
     <Draggable draggableId={String(task.id)} index={index}>
       {(provided, snapshot) => (
@@ -62,6 +68,8 @@ export default function TaskCard({ task, index }) {
           data-event={fcEventData}
           data-task-id={task.id}
           onDragStart={handleDragStart}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
             background: snapshot.isDragging ? '#ffffff' : '#ffffff',
             opacity: 1,
@@ -77,10 +85,42 @@ export default function TaskCard({ task, index }) {
             WebkitUserSelect: 'none',
             zIndex: snapshot.isDragging ? 99999 : 'auto',
             transition: 'box-shadow 0.2s, border 0.2s',
+            position: 'relative',
             ...provided.draggableProps.style
           }}
         >
-          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em' }}>{task.title}</div>
+          {/* Delete button — visible on hover */}
+          {hovered && onDelete && (
+            <button
+              onClick={handleDeleteClick}
+              title="Delete task"
+              style={{
+                position: 'absolute',
+                top: '6px',
+                right: '6px',
+                background: '#fee2e2',
+                border: '1px solid #fecaca',
+                borderRadius: '6px',
+                width: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '0.75em',
+                color: '#dc2626',
+                padding: 0,
+                lineHeight: 1,
+                transition: 'background 0.15s'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#fca5a5'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
+            >
+              🗑️
+            </button>
+          )}
+
+          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em', paddingRight: hovered ? '28px' : '0' }}>{task.title}</div>
           {task.description && (
             <div style={{ fontSize: '0.82em', color: '#605d52', marginBottom: '8px' }}>
               {task.description}

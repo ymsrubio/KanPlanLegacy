@@ -331,4 +331,17 @@ app.patch('/tasks/:id', async (c) => {
   return c.json(updated);
 });
 
+// DELETE /api/tasks/:id — Delete a task (account-scoped)
+app.delete('/tasks/:id', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const taskId = Number(c.req.param('id'));
+
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
+  if (!task) return c.json({ error: 'Task not found' }, 404);
+
+  await db.prepare('DELETE FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).run();
+  return c.json({ ok: true });
+});
+
 export const onRequest = handle(app);

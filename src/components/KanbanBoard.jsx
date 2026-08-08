@@ -173,6 +173,18 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
     setEditingColId(null);
   };
 
+  const handleDeleteTask = async (taskId, taskTitle) => {
+    // Optimistic removal from state
+    setTasks((prev) => prev.filter((t) => Number(t.id) !== Number(taskId)));
+    showAlert(`🗑️ Task "${taskTitle}" deleted.`);
+
+    try {
+      await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+    } catch (err) {
+      console.log('Failed to persist task deletion to server');
+    }
+  };
+
   return (
     <div ref={boardRef} style={{ padding: '0px' }}>
       {/* Floating Toast Notification */}
@@ -276,7 +288,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
                     <div style={{ minHeight: '60px' }}>
                       {colTasks.map((task, index) => (
-                        <TaskCard key={task.id} task={task} index={index} />
+                        <TaskCard key={task.id} task={task} index={index} onDelete={handleDeleteTask} />
                       ))}
                       {provided.placeholder}
                     </div>
