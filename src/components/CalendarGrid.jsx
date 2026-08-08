@@ -107,8 +107,9 @@ export default function CalendarGrid({ tasks, columns = [], onScheduleChange, on
         }}
         slotDuration="00:30:00"
         slotLabelInterval="01:00:00"
-        slotMinTime="08:00:00"
-        slotMaxTime="21:00:00"
+        slotMinTime="00:00:00"
+        slotMaxTime="24:00:00"
+        scrollTime="08:00:00"
         snapDuration="00:30:00"
         allDaySlot={false}
         height="100%"

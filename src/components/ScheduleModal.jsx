@@ -22,10 +22,12 @@ export default function ScheduleModal({ isOpen, onClose, onConfirm, task }) {
     onConfirm(task, startIso, endIso);
   };
 
-  const hoursList = Array.from({ length: 13 }, (_, i) => {
-    const h = i + 8; // 8 AM to 8 PM
+  const hoursList = Array.from({ length: 24 }, (_, i) => {
+    const h = i; // 0 to 23 (12 AM to 11 PM)
     const hStr = String(h).padStart(2, '0');
-    const label = `${h > 12 ? h - 12 : h}:00 ${h >= 12 ? 'PM' : 'AM'}`;
+    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const label = `${displayHour}:00 ${ampm}`;
     return { value: `${hStr}:00`, label };
   });
 
