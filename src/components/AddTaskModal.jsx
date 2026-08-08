@@ -1,12 +1,18 @@
-// src/components/AddTaskModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function AddTaskModal({ isOpen, onClose, onSubmit, columns }) {
+export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }) {
+  const defaultColId = columns?.[0]?.id;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [columnId, setColumnId] = useState(1);
+  const [columnId, setColumnId] = useState(defaultColId);
   const [urgencyLevel, setUrgencyLevel] = useState(3);
   const [importanceLevel, setImportanceLevel] = useState(3);
+
+  useEffect(() => {
+    if (columns && columns.length > 0) {
+      setColumnId((prev) => (prev && columns.some(c => c.id === prev) ? prev : columns[0].id));
+    }
+  }, [columns, isOpen]);
 
   if (!isOpen) return null;
 
@@ -14,10 +20,11 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const targetColId = Number(columnId) || columns?.[0]?.id;
     onSubmit({
       title,
       description,
-      column_id: Number(columnId),
+      column_id: targetColId,
       is_urgent: urgencyLevel >= 4 ? 1 : 0,
       is_important: importanceLevel >= 4 ? 1 : 0,
       urgency_level: urgencyLevel,
@@ -27,7 +34,7 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns }) {
 
     setTitle('');
     setDescription('');
-    setColumnId(1);
+    setColumnId(columns?.[0]?.id);
     setUrgencyLevel(3);
     setImportanceLevel(3);
   };

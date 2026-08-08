@@ -123,8 +123,8 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       return;
     }
 
-    const targetColId = Number(taskData.column_id);
-    const targetCol = columns.find((c) => c.id === targetColId);
+    const targetColId = Number(taskData.column_id) || (columns && columns[0] ? columns[0].id : 1);
+    const targetCol = columns.find((c) => c.id === targetColId) || columns[0];
     const currentTasks = tasks.filter((t) => Number(t.column_id) === targetColId);
 
     if (targetCol && targetCol.wip_limit !== null && currentTasks.length >= targetCol.wip_limit) {

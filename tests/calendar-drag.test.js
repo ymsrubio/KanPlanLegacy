@@ -1,6 +1,7 @@
-const { chromium } = require('playwright');
-const { spawn } = require('child_process');
-const http = require('http');
+import { chromium } from 'playwright';
+import { spawn } from 'node:child_process';
+import http from 'node:http';
+import { fileURLToPath } from 'node:url';
 
 function waitForServer(url, timeoutMs = 15000) {
   const start = Date.now();
