@@ -296,7 +296,7 @@ app.patch('/tasks/:id', async (c) => {
   const accountId = c.get('accountId');
   const taskId = Number(c.req.param('id'));
   const body = await c.req.json();
-  const { column_id, position, schedule_start, schedule_end } = body;
+  const { column_id, position, schedule_start, schedule_end, title, description, urgency_level, importance_level, is_urgent, is_important, deadline } = body;
 
   const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
   if (!task) return c.json({ error: 'Task not found' }, 400);
@@ -321,6 +321,13 @@ app.patch('/tasks/:id', async (c) => {
   if (position !== undefined) { updates.push('position = ?'); values.push(position); }
   if (schedule_start !== undefined) { updates.push('schedule_start = ?'); values.push(schedule_start); }
   if (schedule_end !== undefined) { updates.push('schedule_end = ?'); values.push(schedule_end); }
+  if (title !== undefined) { updates.push('title = ?'); values.push(title); }
+  if (description !== undefined) { updates.push('description = ?'); values.push(description); }
+  if (urgency_level !== undefined) { updates.push('urgency_level = ?'); values.push(urgency_level); }
+  if (importance_level !== undefined) { updates.push('importance_level = ?'); values.push(importance_level); }
+  if (is_urgent !== undefined) { updates.push('is_urgent = ?'); values.push(is_urgent); }
+  if (is_important !== undefined) { updates.push('is_important = ?'); values.push(is_important); }
+  if (deadline !== undefined) { updates.push('deadline = ?'); values.push(deadline); }
 
   if (updates.length > 0) {
     values.push(taskId, accountId);
