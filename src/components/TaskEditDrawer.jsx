@@ -2,6 +2,7 @@
 // Right-side slide-over drawer for editing task details, priority levels, and due dates.
 
 import React, { useState, useEffect } from 'react';
+import { generate5MinTimeOptions } from '../lib/time-utils.js';
 
 export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
   const [title, setTitle] = useState('');
@@ -9,6 +10,8 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
   const [urgencyLevel, setUrgencyLevel] = useState(3);
   const [importanceLevel, setImportanceLevel] = useState(3);
   const [deadline, setDeadline] = useState('');
+  const [scheduleStart, setScheduleStart] = useState('');
+  const [scheduleEnd, setScheduleEnd] = useState('');
 
   useEffect(() => {
     if (task) {
@@ -17,6 +20,8 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
       setUrgencyLevel(task.urgency_level || (task.is_urgent ? 4 : 2));
       setImportanceLevel(task.importance_level || (task.is_important ? 4 : 2));
       setDeadline(task.deadline || '');
+      setScheduleStart(task.schedule_start || '');
+      setScheduleEnd(task.schedule_end || '');
     }
   }, [task]);
 
@@ -35,7 +40,9 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
       is_urgent: urgencyLevel >= 4 ? 1 : 0,
       is_important: importanceLevel >= 4 ? 1 : 0,
       priority_score: priorityScore,
-      deadline: deadline || null
+      deadline: deadline || null,
+      schedule_start: scheduleStart || null,
+      schedule_end: scheduleEnd || null
     });
   };
 

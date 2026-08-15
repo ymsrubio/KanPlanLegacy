@@ -1,35 +1,43 @@
 // src/components/ScheduleModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getTodayDateString, getCurrentRoundedTime, generate5MinTimeOptions } from '../lib/time-utils.js';
 
 export default function ScheduleModal({ isOpen, onClose, onConfirm, task }) {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [scheduleDate, setScheduleDate] = useState(todayStr);
-  const [startTime, setStartTime] = useState('10:00');
-  const [durationHours, setDurationHours] = useState('1');
+  const [scheduleDate, setScheduleDate] = useState(getTodayDateString());
+  const [startTime, setStartTime] = useState(getCurrentRoundedTime());
+  const [durationMinutes, setDurationMinutes] = useState('60');
+
+  useEffect(() => {
+    if (isOpen) {
+      setScheduleDate(getTodayDateString());
+      setStartTime(getCurrentRoundedTime());
+    }
+  }, [isOpen]);
 
   if (!isOpen || !task) return null;
+
+  const timeOptions = generate5MinTimeOptions();
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Construct local wall-clock ISO timestamps (no Z offset shift)
+    // Construct local wall-clock ISO timestamps with 5-min accuracy
     const startIso = `${scheduleDate}T${startTime}:00`;
-    const startHour = Number(startTime.split(':')[0]);
-    const endHour = startHour + Number(durationHours);
-    const endHourStr = String(endHour).padStart(2, '0');
-    const endIso = `${scheduleDate}T${endHourStr}:00`;
+    const [startH, startM] = startTime.split(':').map(Number);
+    const startDateObj = new Date(scheduleDate);
+    startDateObj.setHours(startH, startM, 0, 0);
+
+    const endDateObj = new Date(startDateObj.getTime() + Number(durationMinutes) * 60 * 1000);
+    const endY = endDateObj.getFullYear();
+    const endM = String(endDateObj.getMonth() + 1).padStart(2, '0');
+    const endD = String(endDateObj.getDate()).padStart(2, '0');
+    const endHStr = String(endDateObj.getHours()).padStart(2, '0');
+    const endMinStr = String(endDateObj.getMinutes()).padStart(2, '0');
+
+    const endIso = `${endY}-${endM}-${endD}T${endHStr}:${endMinStr}:00`;
 
     onConfirm(task, startIso, endIso);
   };
-
-  const hoursList = Array.from({ length: 24 }, (_, i) => {
-    const h = i; // 0 to 23 (12 AM to 11 PM)
-    const hStr = String(h).padStart(2, '0');
-    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const label = `${displayHour}:00 ${ampm}`;
-    return { value: `${hStr}:00`, label };
-  });
 
   return (
     <div
@@ -125,9 +133,9 @@ export default function ScheduleModal({ isOpen, onClose, onConfirm, task }) {
                   boxSizing: 'border-box'
                 }}
               >
-                {hoursList.map((h) => (
-                  <option key={h.value} value={h.value}>
-                    {h.label}
+                {timeOptions.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
                   </option>
                 ))}
               </select>
@@ -138,8 +146,8 @@ export default function ScheduleModal({ isOpen, onClose, onConfirm, task }) {
                 Duration
               </label>
               <select
-                value={durationHours}
-                onChange={(e) => setDurationHours(e.target.value)}
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -151,9 +159,12 @@ export default function ScheduleModal({ isOpen, onClose, onConfirm, task }) {
                   boxSizing: 'border-box'
                 }}
               >
-                <option value="1">1 Hour</option>
-                <option value="2">2 Hours</option>
-                <option value="3">3 Hours</option>
+                <option value="15">15 Minutes</option>
+                <option value="30">30 Minutes</option>
+                <option value="45">45 Minutes</option>
+                <option value="60">1 Hour</option>
+                <option value="120">2 Hours</option>
+                <option value="180">3 Hours</option>
               </select>
             </div>
           </div>
