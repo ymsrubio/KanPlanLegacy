@@ -78,23 +78,57 @@ export default function App() {
       const transitions = processAutoTransitions(tasks, columns, now);
       if (transitions.length === 0) return;
 
-      transitions.forEach(async ({ taskId, targetColumnId, task, reason }) => {
-        setTasks((prev) =>
-          prev.map((t) => (Number(t.id) === taskId ? { ...t, column_id: targetColumnId } : t))
-        );
+      transitions.forEach(async ({ taskId, targetColumnId, task, reason, wipOverflow, demoteCandidateId }) => {
+        // If WIP limit would overflow when auto-starting to In Progress, demote lowest priority task back to Backlog
+        if (wipOverflow && demoteCandidateId) {
+          const backlogCol = columns.find((c) => c.name === 'Backlog');
+          const backlogId = backlogCol ? backlogCol.id : (columns[0] ? columns[0].id : 1);
+          const demotedTask = tasks.find((t) => Number(t.id) === demoteCandidateId);
 
-        try {
-          await fetch(`/api/tasks/${taskId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ column_id: targetColumnId })
-          });
-        } catch (err) {
-          console.log('Failed to persist auto transition to server');
+          setTasks((prev) =>
+            prev.map((t) =>
+              Number(t.id) === demoteCandidateId
+                ? { ...t, column_id: backlogId }
+                : Number(t.id) === taskId
+                ? { ...t, column_id: targetColumnId }
+                : t
+            )
+          );
+
+          try {
+            await fetch(`/api/tasks/${demoteCandidateId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ column_id: backlogId })
+            });
+            await fetch(`/api/tasks/${taskId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ column_id: targetColumnId })
+            });
+          } catch (err) {
+            console.log('Failed to persist auto transition / demotion to server');
+          }
+
+          showCalendarAlert(`⚡ "${task.title}" auto-started! Moved "${demotedTask?.title || 'lowest priority'}" to Backlog (WIP Limit).`);
+        } else {
+          setTasks((prev) =>
+            prev.map((t) => (Number(t.id) === taskId ? { ...t, column_id: targetColumnId } : t))
+          );
+
+          try {
+            await fetch(`/api/tasks/${taskId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ column_id: targetColumnId })
+            });
+          } catch (err) {
+            console.log('Failed to persist auto transition to server');
+          }
+
+          const actionText = reason === 'start' ? 'In Progress' : 'Done';
+          showCalendarAlert(`⚡ "${task.title}" automatically moved to ${actionText}!`);
         }
-
-        const actionText = reason === 'start' ? 'In Progress' : 'Done';
-        showCalendarAlert(`⚡ "${task.title}" automatically moved to ${actionText}!`);
       });
     };
 
@@ -377,6 +411,34 @@ export default function App() {
               📅 Calendar Only
             </button>
           </div>
+
+          {/* Auto-Schedule Toggle Button */}
+          <button
+            onClick={() => {
+              const nextState = !autoScheduleEnabled;
+              setAutoScheduleEnabled(nextState);
+              showCalendarAlert(
+                nextState ? '⚡ Auto-Schedule sync enabled!' : '⏸️ Auto-Schedule sync paused.'
+              );
+            }}
+            title={autoScheduleEnabled ? 'Auto-Schedule Active (Click to pause)' : 'Auto-Schedule Paused (Click to enable)'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              border: autoScheduleEnabled ? '1px solid #16a34a' : '1px solid #c5c0b1',
+              background: autoScheduleEnabled ? '#f0fdf4' : '#fffefb',
+              color: autoScheduleEnabled ? '#15803d' : '#605d52',
+              fontWeight: '700',
+              padding: '6px 14px',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontSize: '0.85em',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {autoScheduleEnabled ? '⚡ Auto-Sync: ON' : '⏸️ Auto-Sync: OFF'}
+          </button>
 
           {/* User profile menu */}
           {user && <UserMenu user={user} onLogout={handleLogout} />}

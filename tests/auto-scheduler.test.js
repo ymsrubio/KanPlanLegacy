@@ -70,13 +70,20 @@ test('Auto-scheduler - catches up past due scheduled task to Done directly if sc
   assert.equal(transitions[0].reason, 'end');
 });
 
-test('Auto-scheduler - makes no transition if task is already in target column or unscheduled', () => {
+test('Auto-scheduler - identifies WIP overflow and suggests lowest-priority task demotion to Backlog', () => {
   const now = new Date('2026-08-15T10:00:00');
   const tasks = [
-    { id: 104, title: 'No schedule', column_id: 2, schedule_start: null, schedule_end: null },
-    { id: 105, title: 'Completed', column_id: 4, schedule_start: '2026-08-15T09:00:00', schedule_end: '2026-08-15T09:30:00' }
+    // Two existing tasks in In Progress (column 3, wip_limit = 2)
+    { id: 201, title: 'Active High Priority', column_id: 3, priority_score: 20, schedule_start: '2026-08-15T09:00:00', schedule_end: '2026-08-15T12:00:00' },
+    { id: 202, title: 'Active Low Priority', column_id: 3, priority_score: 4, schedule_start: '2026-08-15T09:30:00', schedule_end: '2026-08-15T12:30:00' },
+    // New task scheduled to auto-start now
+    { id: 203, title: 'New Scheduled Task', column_id: 2, priority_score: 16, schedule_start: '2026-08-15T10:00:00', schedule_end: '2026-08-15T11:00:00' }
   ];
 
   const transitions = processAutoTransitions(tasks, mockColumns, now);
-  assert.equal(transitions.length, 0);
+
+  assert.equal(transitions.length, 1);
+  assert.equal(transitions[0].taskId, 203);
+  assert.equal(transitions[0].wipOverflow, true);
+  assert.equal(transitions[0].demoteCandidateId, 202); // Lowest priority task (score 4)
 });
