@@ -1,8 +1,8 @@
 // src/components/TaskEditDrawer.jsx
-// Right-side slide-over drawer for editing task details, priority levels, and due dates.
+// Right-side slide-over drawer for editing task details, priority levels, due dates, and schedule time blocks.
 
 import React, { useState, useEffect } from 'react';
-import { generate5MinTimeOptions } from '../lib/time-utils.js';
+import { getTodayDateString, getCurrentRoundedTime, generate5MinTimeOptions } from '../lib/time-utils.js';
 
 export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
   const [title, setTitle] = useState('');
@@ -10,8 +10,12 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
   const [urgencyLevel, setUrgencyLevel] = useState(3);
   const [importanceLevel, setImportanceLevel] = useState(3);
   const [deadline, setDeadline] = useState('');
-  const [scheduleStart, setScheduleStart] = useState('');
-  const [scheduleEnd, setScheduleEnd] = useState('');
+
+  // Schedule state
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState(getTodayDateString());
+  const [startTime, setStartTime] = useState(getCurrentRoundedTime());
+  const [durationMinutes, setDurationMinutes] = useState('60');
 
   useEffect(() => {
     if (task) {
@@ -20,17 +24,56 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
       setUrgencyLevel(task.urgency_level || (task.is_urgent ? 4 : 2));
       setImportanceLevel(task.importance_level || (task.is_important ? 4 : 2));
       setDeadline(task.deadline || '');
-      setScheduleStart(task.schedule_start || '');
-      setScheduleEnd(task.schedule_end || '');
+
+      const hasStart = Boolean(task.schedule_start);
+      setIsScheduled(hasStart);
+
+      if (hasStart) {
+        setScheduleDate(task.schedule_start.split('T')[0] || getTodayDateString());
+        setStartTime(task.schedule_start.split('T')[1]?.substring(0, 5) || getCurrentRoundedTime());
+
+        if (task.schedule_end) {
+          const startMs = new Date(task.schedule_start).getTime();
+          const endMs = new Date(task.schedule_end).getTime();
+          const diffMins = Math.round((endMs - startMs) / (60 * 1000));
+          if (diffMins > 0) {
+            setDurationMinutes(String(diffMins));
+          }
+        }
+      } else {
+        setScheduleDate(getTodayDateString());
+        setStartTime(getCurrentRoundedTime());
+        setDurationMinutes('60');
+      }
     }
   }, [task]);
 
   if (!isOpen || !task) return null;
 
   const priorityScore = urgencyLevel * importanceLevel;
+  const timeOptions = generate5MinTimeOptions();
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    let computedStart = null;
+    let computedEnd = null;
+
+    if (isScheduled && scheduleDate && startTime) {
+      computedStart = `${scheduleDate}T${startTime}:00`;
+      const [startH, startM] = startTime.split(':').map(Number);
+      const startObj = new Date(scheduleDate);
+      startObj.setHours(startH, startM, 0, 0);
+
+      const endObj = new Date(startObj.getTime() + Number(durationMinutes) * 60 * 1000);
+      const endY = endObj.getFullYear();
+      const endM = String(endObj.getMonth() + 1).padStart(2, '0');
+      const endD = String(endObj.getDate()).padStart(2, '0');
+      const endHStr = String(endObj.getHours()).padStart(2, '0');
+      const endMinStr = String(endObj.getMinutes()).padStart(2, '0');
+      computedEnd = `${endY}-${endM}-${endD}T${endHStr}:${endMinStr}:00`;
+    }
+
     onSave({
       ...task,
       title: title.trim(),
@@ -41,8 +84,8 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
       is_important: importanceLevel >= 4 ? 1 : 0,
       priority_score: priorityScore,
       deadline: deadline || null,
-      schedule_start: scheduleStart || null,
-      schedule_end: scheduleEnd || null
+      schedule_start: computedStart,
+      schedule_end: computedEnd
     });
   };
 
@@ -213,6 +256,137 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
                 boxSizing: 'border-box'
               }}
             />
+          </div>
+
+          {/* Scheduled Time Block Section */}
+          <div style={{ background: '#f8f4f0', border: '1px solid #c5c0b1', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.85em', fontWeight: '700', color: '#201515' }}>⏱️ Scheduled Time Block</span>
+              {isScheduled && (
+                <button
+                  type="button"
+                  onClick={() => setIsScheduled(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#dc2626',
+                    fontSize: '0.8em',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    padding: '2px 6px'
+                  }}
+                >
+                  🚫 Clear Schedule
+                </button>
+              )}
+            </div>
+
+            {isScheduled ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px', color: '#36342e' }}>
+                    Schedule Date
+                  </label>
+                  <input
+                    type="date"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #c5c0b1',
+                      background: '#fffefb',
+                      color: '#201515',
+                      fontSize: '0.9em',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px', color: '#36342e' }}>
+                      Start Time
+                    </label>
+                    <select
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #c5c0b1',
+                        background: '#fffefb',
+                        color: '#201515',
+                        fontSize: '0.9em',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      {timeOptions.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px', color: '#36342e' }}>
+                      Duration
+                    </label>
+                    <select
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #c5c0b1',
+                        background: '#fffefb',
+                        color: '#201515',
+                        fontSize: '0.9em',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <option value="15">15 Minutes</option>
+                      <option value="30">30 Minutes</option>
+                      <option value="45">45 Minutes</option>
+                      <option value="60">1 Hour</option>
+                      <option value="120">2 Hours</option>
+                      <option value="180">3 Hours</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p style={{ margin: '0 0 10px 0', fontSize: '0.85em', color: '#605d52' }}>
+                  Not currently scheduled on calendar.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsScheduled(true);
+                    setScheduleDate(getTodayDateString());
+                    setStartTime(getCurrentRoundedTime());
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px dashed #ff4f00',
+                    background: '#fffefb',
+                    color: '#ff4f00',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    fontSize: '0.85em'
+                  }}
+                >
+                  ⏱️ Add Time Block to Schedule
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
