@@ -1,10 +1,10 @@
-// src/App.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import KanbanBoard from './components/KanbanBoard.jsx';
 import CalendarGrid from './components/CalendarGrid.jsx';
 import WipSwapModal from './components/WipSwapModal.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import UserMenu from './components/UserMenu.jsx';
+import { processAutoTransitions } from './lib/auto-scheduler.js';
 
 export default function App() {
   // Auth state
@@ -14,6 +14,7 @@ export default function App() {
   const [layoutMode, setLayoutMode] = useState('split');
   const [columns, setColumns] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
 
   // WIP swap modal state
   const [wipSwapState, setWipSwapState] = useState(null);
@@ -54,6 +55,42 @@ export default function App() {
       .then((data) => data && setTasks(data))
       .catch(() => console.log('Failed to fetch tasks'));
   }, [authState]);
+
+  // Auto-schedule ticker: evaluate tasks against schedule_start and schedule_end
+  useEffect(() => {
+    if (!autoScheduleEnabled || authState !== 'authenticated' || tasks.length === 0 || columns.length === 0) {
+      return;
+    }
+
+    const checkTransitions = () => {
+      const transitions = processAutoTransitions(tasks, columns, new Date());
+      if (transitions.length === 0) return;
+
+      // Apply transitions
+      transitions.forEach(async ({ taskId, targetColumnId, task, reason }) => {
+        setTasks((prev) =>
+          prev.map((t) => (Number(t.id) === taskId ? { ...t, column_id: targetColumnId } : t))
+        );
+
+        try {
+          await fetch(`/api/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ column_id: targetColumnId })
+          });
+        } catch (err) {
+          console.log('Failed to persist auto transition to server');
+        }
+
+        const actionText = reason === 'start' ? 'In Progress' : 'Done';
+        showCalendarAlert(`⚡ "${task.title}" automatically moved to ${actionText}!`);
+      });
+    };
+
+    checkTransitions();
+    const interval = setInterval(checkTransitions, 10000);
+    return () => clearInterval(interval);
+  }, [tasks, columns, autoScheduleEnabled, authState]);
 
   // Logout handler
   const handleLogout = async () => {
