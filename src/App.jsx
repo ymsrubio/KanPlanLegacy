@@ -5,6 +5,7 @@ import WipSwapModal from './components/WipSwapModal.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import UserMenu from './components/UserMenu.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
+import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
 
 export default function App() {
   // Auth state
@@ -15,6 +16,7 @@ export default function App() {
   const [columns, setColumns] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
+  const [currentDateStr, setCurrentDateStr] = useState(getTodayDateString());
 
   // WIP swap modal state
   const [wipSwapState, setWipSwapState] = useState(null);
@@ -56,17 +58,26 @@ export default function App() {
       .catch(() => console.log('Failed to fetch tasks'));
   }, [authState]);
 
-  // Auto-schedule ticker: evaluate tasks against schedule_start and schedule_end
+  // Auto-schedule & Midnight New-Day Ticker
   useEffect(() => {
-    if (!autoScheduleEnabled || authState !== 'authenticated' || tasks.length === 0 || columns.length === 0) {
-      return;
-    }
+    if (authState !== 'authenticated') return;
 
-    const checkTransitions = () => {
-      const transitions = processAutoTransitions(tasks, columns, new Date());
+    const runTicker = () => {
+      const now = new Date();
+
+      // 1. Midnight date change check
+      if (hasDateChanged(currentDateStr, now)) {
+        const newDate = getTodayDateString(now);
+        setCurrentDateStr(newDate);
+        showCalendarAlert(`🗓️ New day started (${newDate})! Calendar & schedule updated.`);
+      }
+
+      // 2. Auto-schedule transitions check
+      if (!autoScheduleEnabled || tasks.length === 0 || columns.length === 0) return;
+
+      const transitions = processAutoTransitions(tasks, columns, now);
       if (transitions.length === 0) return;
 
-      // Apply transitions
       transitions.forEach(async ({ taskId, targetColumnId, task, reason }) => {
         setTasks((prev) =>
           prev.map((t) => (Number(t.id) === taskId ? { ...t, column_id: targetColumnId } : t))
@@ -87,10 +98,10 @@ export default function App() {
       });
     };
 
-    checkTransitions();
-    const interval = setInterval(checkTransitions, 10000);
+    runTicker();
+    const interval = setInterval(runTicker, 10000);
     return () => clearInterval(interval);
-  }, [tasks, columns, autoScheduleEnabled, authState]);
+  }, [tasks, columns, autoScheduleEnabled, authState, currentDateStr]);
 
   // Logout handler
   const handleLogout = async () => {

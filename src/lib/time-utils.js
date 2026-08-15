@@ -45,6 +45,15 @@ export function generate5MinTimeOptions() {
 }
 
 /**
+ * Check if the date of nowInput differs from a previous date string (YYYY-MM-DD)
+ */
+export function hasDateChanged(prevDateStr, nowInput = new Date()) {
+  if (!prevDateStr) return true;
+  const currentDateStr = getTodayDateString(nowInput);
+  return prevDateStr !== currentDateStr;
+}
+
+/**
  * Format a Date object to local wall-clock ISO string (no Z offset)
  */
 export function formatLocalIso(date) {
