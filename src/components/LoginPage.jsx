@@ -127,6 +127,34 @@ export default function LoginPage() {
           </svg>
           Sign in with Google
         </a>
+
+        {/* Localhost Dev Login option */}
+        {(typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) && (
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #c5c0b1' }}>
+            <a
+              href="/api/auth/dev-login"
+              id="login-dev-button"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                background: '#fffefb',
+                color: '#ff4f00',
+                border: '1px solid #ff4f00',
+                borderRadius: '14px',
+                padding: '10px 20px',
+                fontSize: '0.9em',
+                fontWeight: '700',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              🛠️ Local Dev Quick Sign In
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Footer */}
