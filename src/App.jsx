@@ -440,6 +440,8 @@ export default function App() {
             }}
           >
             {autoScheduleEnabled ? '⚡ Auto-Sync: ON' : '⏸️ Auto-Sync: OFF'}
+          </button>
+
           {/* Phase Transition Prototype Button */}
           <button
             onClick={() => setShowPhasePrototype(true)}
