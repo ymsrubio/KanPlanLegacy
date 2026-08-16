@@ -1,12 +1,16 @@
 // src/components/TaskCard.jsx
 import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
+import { getNextColumn, getPrevColumn } from '../lib/phase-movement.js';
 
-export default function TaskCard({ task, index, onDelete, onEdit }) {
+export default function TaskCard({ task, index, onDelete, onEdit, columns, onMovePhase }) {
   const [hovered, setHovered] = useState(false);
   const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
   const importance = task.importance_level || (task.is_important ? 4 : 2);
   const priorityScore = task.priority_score || (urgency * importance);
+
+  const prevCol = columns ? getPrevColumn(columns, task.column_id) : null;
+  const nextCol = columns ? getNextColumn(columns, task.column_id) : null;
 
   const getBadge = () => {
     if (priorityScore >= 20) return { label: `🔥 Critical: ${priorityScore}`, bg: '#ffe4e6', color: '#9f1239', border: '#e11d48', tint: '#fff1f2' };
@@ -96,7 +100,64 @@ export default function TaskCard({ task, index, onDelete, onEdit }) {
         >
           {/* Hover Action Buttons */}
           {hovered && (
-            <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px' }}>
+            <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px', zIndex: 10 }}>
+              {/* Prev Phase Button */}
+              {prevCol && onMovePhase && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onMovePhase(task.id, -1); }}
+                  title={`Move back to ${prevCol.name}`}
+                  className="task-card-prev-btn"
+                  style={{
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '0.75em',
+                    fontWeight: '800',
+                    color: '#201515',
+                    padding: 0,
+                    lineHeight: 1,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  ◀
+                </button>
+              )}
+
+              {/* Next Phase Button */}
+              {nextCol && onMovePhase && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onMovePhase(task.id, 1); }}
+                  title={`Advance to ${nextCol.name}`}
+                  className="task-card-next-btn"
+                  style={{
+                    background: '#ff4f00',
+                    border: 'none',
+                    color: '#fffefb',
+                    borderRadius: '6px',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '0.75em',
+                    fontWeight: '800',
+                    padding: 0,
+                    lineHeight: 1,
+                    boxShadow: '0 2px 4px rgba(255, 79, 0, 0.25)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  ▶
+                </button>
+              )}
+
               {onEdit && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onEdit(task); }}
@@ -146,7 +207,7 @@ export default function TaskCard({ task, index, onDelete, onEdit }) {
             </div>
           )}
 
-          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em', paddingRight: hovered ? '28px' : '0' }}>{task.title}</div>
+          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em', paddingRight: hovered ? '80px' : '0' }}>{task.title}</div>
           {task.description && (
             <div style={{ fontSize: '0.82em', color: '#605d52', marginBottom: '8px' }}>
               {task.description}

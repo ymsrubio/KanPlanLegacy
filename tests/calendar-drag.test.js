@@ -1,27 +1,17 @@
-import { chromium } from 'playwright';
+import { test } from 'node:test';
 import { spawn } from 'node:child_process';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 
-function waitForServer(url, timeoutMs = 15000) {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    function check() {
-      http.get(url, (res) => {
-        if (res.statusCode === 200) resolve();
-        else retry();
-      }).on('error', retry);
-    }
-    function retry() {
-      if (Date.now() - start > timeoutMs) reject(new Error('Server timeout: ' + url));
-      else setTimeout(check, 500);
-    }
-    check();
-  });
-}
-
-(async () => {
-  let devProcess = null;
+test('calendar-drag e2e test', async (t) => {
+  let chromium;
+  try {
+    const pw = await import('playwright');
+    chromium = pw.chromium;
+  } catch {
+    t.skip('playwright not installed, skipping browser e2e test');
+    return;
+  }
 
   try {
     // Check if dev server running, if not start it
@@ -95,4 +85,4 @@ function waitForServer(url, timeoutMs = 15000) {
   } finally {
     if (devProcess) devProcess.kill();
   }
-})();
+});

@@ -7,6 +7,7 @@ import Toast from './Toast.jsx';
 import AddTaskModal from './AddTaskModal.jsx';
 import ScheduleModal from './ScheduleModal.jsx';
 import TaskEditDrawer from './TaskEditDrawer.jsx';
+import { getNextColumn, getPrevColumn, canMoveToColumn } from '../lib/phase-movement.js';
 
 export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
   const [localColumns, setLocalColumns] = useState([
@@ -106,6 +107,55 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
       });
     } catch (err) {
       console.log('Failed to persist task move to server');
+    }
+  };
+
+  const handleMovePhase = async (taskId, direction) => {
+    const task = tasks.find((t) => Number(t.id) === Number(taskId));
+    if (!task) return;
+
+    const targetColumn = direction > 0
+      ? getNextColumn(columns, task.column_id)
+      : getPrevColumn(columns, task.column_id);
+
+    if (!targetColumn) return;
+
+    // Check WIP limit
+    if (direction > 0 && targetColumn.wip_limit !== null) {
+      const targetCount = tasks.filter(
+        (t) => Number(t.column_id) === Number(targetColumn.id) && Number(t.id) !== Number(taskId)
+      ).length;
+
+      if (targetCount >= targetColumn.wip_limit) {
+        showAlert(`⚠️ WIP Limit Reached! Cannot advance to "${targetColumn.name}" (Max: ${targetColumn.wip_limit}).`);
+        return;
+      }
+    }
+
+    const readyCol = columns.find((c) => c.name === 'Ready to Start');
+    const isReadyCol = readyCol && Number(targetColumn.id) === Number(readyCol.id);
+
+    // If advancing to Ready to Start and not yet scheduled, trigger schedule modal
+    if (direction > 0 && isReadyCol && !task.schedule_start) {
+      setSchedulingTask({ ...task, targetColumnId: targetColumn.id });
+      return;
+    }
+
+    // Direct move
+    const updatedTasks = tasks.map((t) =>
+      Number(t.id) === Number(taskId) ? { ...t, column_id: targetColumn.id } : t
+    );
+    setTasks(updatedTasks);
+    showAlert(`Moved "${task.title}" to ${targetColumn.name}`);
+
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ column_id: targetColumn.id })
+      });
+    } catch (err) {
+      console.log('Failed to persist phase move to server');
     }
   };
 
@@ -409,6 +459,8 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
                           index={index}
                           onDelete={handleDeleteTask}
                           onEdit={(t) => setEditingTask(t)}
+                          columns={columns}
+                          onMovePhase={handleMovePhase}
                         />
                       ))}
                       {provided.placeholder}
