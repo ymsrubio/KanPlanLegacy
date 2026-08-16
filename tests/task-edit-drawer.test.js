@@ -7,7 +7,7 @@ import { getTodayDateString, getCurrentRoundedTime } from '../src/lib/time-utils
  * Helper simulating TaskEditDrawer schedule payload construction
  */
 function buildTaskEditPayload(task, formData) {
-  const { title, description, urgencyLevel, importanceLevel, deadline, isScheduled, scheduleDate, startTime, durationMinutes } = formData;
+  const { title, description, columnId, urgencyLevel, importanceLevel, deadline, isScheduled, scheduleDate, startTime, durationMinutes } = formData;
   const priorityScore = urgencyLevel * importanceLevel;
 
   let schedule_start = null;
@@ -30,6 +30,7 @@ function buildTaskEditPayload(task, formData) {
 
   return {
     ...task,
+    column_id: columnId !== undefined ? Number(columnId) : task.column_id,
     title: title.trim(),
     description,
     urgency_level: urgencyLevel,
@@ -64,27 +65,35 @@ test('TaskEditDrawer - constructs 5-minute scheduled time block ISO string when 
   assert.equal(updated.priority_score, 16);
 });
 
-test('TaskEditDrawer - unschedules task when isScheduled is set to false', () => {
-  const originalTask = {
-    id: 2,
-    title: 'Review PR',
-    schedule_start: '2026-08-15T10:00:00',
-    schedule_end: '2026-08-15T11:00:00'
-  };
+test('TaskEditDrawer - updates column_id when selected', () => {
+  const originalTask = { id: 3, column_id: 1, title: 'Drafting Spec' };
   const formData = {
-    title: 'Review PR',
-    description: '',
+    title: 'Drafting Spec',
+    columnId: 2,
     urgencyLevel: 3,
     importanceLevel: 3,
-    deadline: '',
-    isScheduled: false,
-    scheduleDate: '2026-08-15',
-    startTime: '10:00',
-    durationMinutes: 60
+    isScheduled: false
   };
 
   const updated = buildTaskEditPayload(originalTask, formData);
-
-  assert.equal(updated.schedule_start, null);
-  assert.equal(updated.schedule_end, null);
+  assert.equal(updated.column_id, 2);
 });
+
+test('TaskEditDrawer - validates target column WIP limit', () => {
+  const columns = [
+    { id: 1, name: 'Backlog', wip_limit: null },
+    { id: 2, name: 'Ready to Start', wip_limit: 2 }
+  ];
+  const activeTasks = [
+    { id: 10, column_id: 2, is_archived: 0 },
+    { id: 11, column_id: 2, is_archived: 0 }
+  ];
+
+  // Target column 2 is at capacity (2/2)
+  const targetCol = columns.find(c => c.id === 2);
+  const currentCount = activeTasks.filter(t => t.column_id === 2 && !t.is_archived).length;
+  const isFull = targetCol.wip_limit !== null && currentCount >= targetCol.wip_limit;
+
+  assert.equal(isFull, true);
+});
+

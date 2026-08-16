@@ -553,6 +553,8 @@ export default function KanbanBoard({
         onSave={handleSaveEdit}
         task={editingTask}
         projects={projects}
+        columns={columns}
+        tasks={tasks}
         onArchive={onArchive}
       />
     </div>

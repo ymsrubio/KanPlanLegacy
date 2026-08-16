@@ -4,13 +4,15 @@
 import React, { useState, useEffect } from 'react';
 import { getTodayDateString, getCurrentRoundedTime, generate5MinTimeOptions } from '../lib/time-utils.js';
 
-export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects = [], onArchive }) {
+export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects = [], columns = [], tasks = [], onArchive }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [columnId, setColumnId] = useState('');
   const [urgencyLevel, setUrgencyLevel] = useState(3);
   const [importanceLevel, setImportanceLevel] = useState(3);
   const [deadline, setDeadline] = useState('');
+  const [errorMsg, setErrorMsg] = useState(null);
 
   // Schedule state
   const [isScheduled, setIsScheduled] = useState(false);
@@ -23,9 +25,11 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
       setTitle(task.title || '');
       setDescription(task.description || '');
       setProjectId(task.project_id ? String(task.project_id) : '');
+      setColumnId(task.column_id ? String(task.column_id) : '');
       setUrgencyLevel(task.urgency_level || (task.is_urgent ? 4 : 2));
       setImportanceLevel(task.importance_level || (task.is_important ? 4 : 2));
       setDeadline(task.deadline || '');
+      setErrorMsg(null);
 
       const hasStart = Boolean(task.schedule_start);
       setIsScheduled(hasStart);
@@ -58,6 +62,19 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // Validate WIP limit if changing column
+    const targetColId = Number(columnId);
+    if (targetColId && targetColId !== Number(task.column_id)) {
+      const targetCol = columns.find((c) => Number(c.id) === targetColId);
+      if (targetCol && targetCol.wip_limit !== null) {
+        const destCount = tasks.filter((t) => Number(t.column_id) === targetColId && !t.is_archived).length;
+        if (destCount >= targetCol.wip_limit) {
+          setErrorMsg(`Cannot move to "${targetCol.name}": WIP limit reached (${targetCol.wip_limit}/${targetCol.wip_limit}).`);
+          return;
+        }
+      }
+    }
+
     let computedStart = null;
     let computedEnd = null;
 
@@ -78,6 +95,7 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
 
     onSave({
       ...task,
+      column_id: targetColId || task.column_id,
       title: title.trim(),
       description,
       project_id: projectId ? Number(projectId) : null,
@@ -172,6 +190,48 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
               }}
             />
           </div>
+
+          {/* Column / Stage Selector */}
+          {columns.length > 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
+                📊 Column / Kanban Stage
+              </label>
+              <select
+                value={columnId}
+                onChange={(e) => {
+                  setColumnId(e.target.value);
+                  setErrorMsg(null);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: errorMsg ? '1px solid #dc2626' : '1px solid #c5c0b1',
+                  background: '#fffefb',
+                  color: '#201515',
+                  fontSize: '0.95em',
+                  fontWeight: '600',
+                  boxSizing: 'border-box'
+                }}
+              >
+                {columns.map((c) => {
+                  const colTasksCount = tasks.filter((t) => Number(t.column_id) === Number(c.id) && !t.is_archived).length;
+                  const wipLabel = c.wip_limit !== null ? ` (WIP: ${colTasksCount}/${c.wip_limit})` : '';
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {wipLabel}
+                    </option>
+                  );
+                })}
+              </select>
+              {errorMsg && (
+                <div style={{ color: '#dc2626', fontSize: '0.8em', fontWeight: '600', marginTop: '4px' }}>
+                  ⚠️ {errorMsg}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
