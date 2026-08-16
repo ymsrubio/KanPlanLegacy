@@ -6,6 +6,7 @@ import LoginPage from './components/LoginPage.jsx';
 import UserMenu from './components/UserMenu.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
+import PhaseTransitionPrototype from './components/PhaseTransitionPrototype.jsx';
 
 export default function App() {
   // Auth state
@@ -17,6 +18,7 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
   const [currentDateStr, setCurrentDateStr] = useState(getTodayDateString());
+  const [showPhasePrototype, setShowPhasePrototype] = useState(false);
 
   // WIP swap modal state
   const [wipSwapState, setWipSwapState] = useState(null);
@@ -438,12 +440,33 @@ export default function App() {
             }}
           >
             {autoScheduleEnabled ? '⚡ Auto-Sync: ON' : '⏸️ Auto-Sync: OFF'}
+          {/* Phase Transition Prototype Button */}
+          <button
+            onClick={() => setShowPhasePrototype(true)}
+            style={{
+              border: '1px solid #ff4f00',
+              background: '#fffefb',
+              color: '#ff4f00',
+              fontWeight: '800',
+              padding: '6px 14px',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontSize: '0.85em',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            🧪 Test Phase Buttons
           </button>
 
           {/* User profile menu */}
           {user && <UserMenu user={user} onLogout={handleLogout} />}
         </div>
       </header>
+
+      {/* Phase Transition Prototype Modal */}
+      {showPhasePrototype && (
+        <PhaseTransitionPrototype onClose={() => setShowPhasePrototype(false)} />
+      )}
 
       {/* Main Workspace */}
       <main style={{ flex: 1, minHeight: 0, display: 'flex', gap: '20px', alignItems: 'stretch', overflow: 'hidden' }}>
