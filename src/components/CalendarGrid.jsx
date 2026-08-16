@@ -23,7 +23,8 @@ export default function CalendarGrid({
   selectedProjectId = null,
   onSelectProject,
   onScheduleChange,
-  onExternalDrop
+  onExternalDrop,
+  onEditTask
 }) {
   const doneCol = columns.find((c) => c.name === 'Done');
 
@@ -89,10 +90,38 @@ export default function CalendarGrid({
     const startIso = formatLocalIso(info.event.start);
     const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
 
-    // Remove the FullCalendar-rendered ghost — we manage state ourselves
-    info.event.remove();
-
     onExternalDrop(taskId, startIso, endIso);
+  };
+
+  // Double-click and double-tap to inspect / edit event
+  const handleEventDidMount = (info) => {
+    let lastTap = 0;
+    info.el.style.cursor = 'pointer';
+    info.el.setAttribute('title', 'Double-click or double-tap to edit task');
+
+    info.el.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      const taskId = Number(info.event.extendedProps.taskId || info.event.id);
+      const task = tasks.find((t) => Number(t.id) === taskId);
+      if (task && onEditTask) {
+        onEditTask(task);
+      }
+    });
+
+    info.el.addEventListener('touchend', (e) => {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTap;
+      if (tapLength < 350 && tapLength > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        const taskId = Number(info.event.extendedProps.taskId || info.event.id);
+        const task = tasks.find((t) => Number(t.id) === taskId);
+        if (task && onEditTask) {
+          onEditTask(task);
+        }
+      }
+      lastTap = currentTime;
+    });
   };
 
   return (
@@ -216,6 +245,7 @@ export default function CalendarGrid({
         eventDrop={handleEventDrop}
         eventResize={handleEventResize}
         eventReceive={handleEventReceive}
+        eventDidMount={handleEventDidMount}
       />
     </div>
   );

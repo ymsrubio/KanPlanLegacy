@@ -7,6 +7,7 @@ import UserMenu from './components/UserMenu.jsx';
 import ProjectSelector from './components/ProjectSelector.jsx';
 import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import ArchiveDrawer from './components/ArchiveDrawer.jsx';
+import TaskEditDrawer from './components/TaskEditDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
 import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
@@ -22,6 +23,7 @@ export default function App() {
   const [archivedTasks, setArchivedTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isArchiveDrawerOpen, setIsArchiveDrawerOpen] = useState(false);
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
@@ -231,6 +233,23 @@ export default function App() {
     setColumns([]);
     setTasks([]);
     setAuthState('unauthenticated');
+  };
+
+  // Task Edit Handler
+  const handleSaveEdit = async (updatedTask) => {
+    setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+    setEditingTask(null);
+    showCalendarAlert(`✏️ Task "${updatedTask.title}" updated!`);
+
+    try {
+      await fetch(`/api/tasks/${updatedTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTask)
+      });
+    } catch {
+      // Best-effort
+    }
   };
 
   // Calendar: on-calendar drag-to-reschedule or resize
@@ -481,6 +500,18 @@ export default function App() {
         onPermanentDelete={handlePermanentDeleteArchivedTask}
       />
 
+      {/* Task Edit Slide-Over Drawer */}
+      <TaskEditDrawer
+        isOpen={Boolean(editingTask)}
+        onClose={() => setEditingTask(null)}
+        onSave={handleSaveEdit}
+        task={editingTask}
+        projects={projects}
+        columns={columns}
+        tasks={tasks}
+        onArchive={handleArchiveTask}
+      />
+
       {/* Fixed Header */}
       <header
         style={{
@@ -654,6 +685,7 @@ export default function App() {
               selectedProjectId={selectedProjectId}
               onSelectProject={setSelectedProjectId}
               onArchive={handleArchiveTask}
+              onEditTask={setEditingTask}
             />
           </div>
         )}
@@ -676,6 +708,7 @@ export default function App() {
               onSelectProject={setSelectedProjectId}
               onScheduleChange={handleScheduleChange}
               onExternalDrop={handleExternalDrop}
+              onEditTask={setEditingTask}
             />
           </div>
         )}

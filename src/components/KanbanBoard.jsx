@@ -17,7 +17,8 @@ export default function KanbanBoard({
   projects = [],
   selectedProjectId = null,
   onSelectProject,
-  onArchive
+  onArchive,
+  onEditTask
 }) {
   const [localColumns, setLocalColumns] = useState([
     { id: 1, name: 'Backlog', wip_limit: null },
@@ -528,7 +529,7 @@ export default function KanbanBoard({
                             task={task}
                             index={index}
                             onDelete={handleDeleteTask}
-                            onEdit={(t) => setEditingTask(t)}
+                            onEdit={(t) => (onEditTask ? onEditTask(t) : setEditingTask(t))}
                             columns={columns}
                             onMovePhase={handleMovePhase}
                             projects={projects}
@@ -546,17 +547,19 @@ export default function KanbanBoard({
         </div>
       </DragDropContext>
 
-      {/* Task Edit Slide-Over Drawer */}
-      <TaskEditDrawer
-        isOpen={Boolean(editingTask)}
-        onClose={() => setEditingTask(null)}
-        onSave={handleSaveEdit}
-        task={editingTask}
-        projects={projects}
-        columns={columns}
-        tasks={tasks}
-        onArchive={onArchive}
-      />
+      {/* Local Fallback Task Edit Drawer if not provided by parent */}
+      {!onEditTask && (
+        <TaskEditDrawer
+          isOpen={Boolean(editingTask)}
+          onClose={() => setEditingTask(null)}
+          onSave={handleSaveEdit}
+          task={editingTask}
+          projects={projects}
+          columns={columns}
+          tasks={tasks}
+          onArchive={onArchive}
+        />
+      )}
     </div>
   );
 }
