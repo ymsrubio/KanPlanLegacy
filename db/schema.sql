@@ -52,5 +52,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   deadline TEXT,
   color_tag TEXT DEFAULT '#3b82f6',
   position INTEGER NOT NULL DEFAULT 0,
+  completed_at DATETIME,
+  is_archived INTEGER DEFAULT 0,
+  archived_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

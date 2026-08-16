@@ -153,13 +153,31 @@ async function ensureSchemaD1(db) {
         deadline TEXT,
         color_tag TEXT DEFAULT '#3b82f6',
         position INTEGER NOT NULL DEFAULT 0,
+        completed_at DATETIME,
+        is_archived INTEGER DEFAULT 0,
+        archived_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
 
-    // Safe migration: ensure project_id exists on tasks table if created previously
+    // Safe migration: ensure project_id and archive columns exist on tasks table
     try {
       await db.prepare('ALTER TABLE tasks ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL').run();
+    } catch {
+      // Column already exists
+    }
+    try {
+      await db.prepare('ALTER TABLE tasks ADD COLUMN is_archived INTEGER DEFAULT 0').run();
+    } catch {
+      // Column already exists
+    }
+    try {
+      await db.prepare('ALTER TABLE tasks ADD COLUMN archived_at TEXT').run();
+    } catch {
+      // Column already exists
+    }
+    try {
+      await db.prepare('ALTER TABLE tasks ADD COLUMN completed_at TEXT').run();
     } catch {
       // Column already exists
     }
@@ -416,8 +434,44 @@ app.delete('/projects/:id', async (c) => {
 app.get('/tasks', async (c) => {
   const db = c.env.DB;
   const accountId = c.get('accountId');
-  const { results } = await db.prepare('SELECT * FROM tasks WHERE account_id = ? ORDER BY column_id ASC, position ASC').bind(accountId).all();
+  const { results } = await db.prepare('SELECT * FROM tasks WHERE account_id = ? AND (is_archived = 0 OR is_archived IS NULL) ORDER BY column_id ASC, position ASC').bind(accountId).all();
   return c.json(results);
+});
+
+app.get('/tasks/archived', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const { results } = await db.prepare('SELECT * FROM tasks WHERE account_id = ? AND is_archived = 1 ORDER BY archived_at DESC, id DESC').bind(accountId).all();
+  return c.json(results);
+});
+
+app.post('/tasks/:id/archive', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const taskId = Number(c.req.param('id'));
+
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
+  if (!task) return c.json({ error: 'Task not found' }, 404);
+
+  const nowIso = new Date().toISOString();
+  await db.prepare('UPDATE tasks SET is_archived = 1, archived_at = ? WHERE id = ? AND account_id = ?').bind(nowIso, taskId, accountId).run();
+
+  const updated = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
+  return c.json(updated);
+});
+
+app.post('/tasks/:id/restore', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const taskId = Number(c.req.param('id'));
+
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
+  if (!task) return c.json({ error: 'Task not found' }, 404);
+
+  await db.prepare('UPDATE tasks SET is_archived = 0, archived_at = NULL WHERE id = ? AND account_id = ?').bind(taskId, accountId).run();
+
+  const updated = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
+  return c.json(updated);
 });
 
 app.post('/tasks', async (c) => {
@@ -443,7 +497,7 @@ app.post('/tasks', async (c) => {
   if (!column) return c.json({ error: 'Column not found' }, 400);
 
   if (column.wip_limit !== null) {
-    const countRow = await db.prepare('SELECT COUNT(*) AS total FROM tasks WHERE column_id = ? AND account_id = ?').bind(column_id, accountId).first();
+    const countRow = await db.prepare('SELECT COUNT(*) AS total FROM tasks WHERE column_id = ? AND account_id = ? AND (is_archived = 0 OR is_archived IS NULL)').bind(column_id, accountId).first();
     if (countRow.total >= column.wip_limit) {
       return c.json({ error: `WIP limit reached for this column (Max: ${column.wip_limit})` }, 400);
     }
@@ -476,7 +530,7 @@ app.patch('/tasks/:id', async (c) => {
   const accountId = c.get('accountId');
   const taskId = Number(c.req.param('id'));
   const body = await c.req.json();
-  const { column_id, project_id, position, schedule_start, schedule_end, title, description, urgency_level, importance_level, is_urgent, is_important, deadline } = body;
+  const { column_id, project_id, position, schedule_start, schedule_end, title, description, urgency_level, importance_level, is_urgent, is_important, deadline, is_archived, archived_at, completed_at } = body;
 
   const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
   if (!task) return c.json({ error: 'Task not found' }, 400);
@@ -487,7 +541,7 @@ app.patch('/tasks/:id', async (c) => {
     if (!targetColumn) return c.json({ error: 'Target column not found' }, 400);
 
     if (targetColumn.wip_limit !== null) {
-      const countRow = await db.prepare('SELECT COUNT(*) AS total FROM tasks WHERE column_id = ? AND account_id = ?').bind(column_id, accountId).first();
+      const countRow = await db.prepare('SELECT COUNT(*) AS total FROM tasks WHERE column_id = ? AND account_id = ? AND (is_archived = 0 OR is_archived IS NULL)').bind(column_id, accountId).first();
       if (countRow.total >= targetColumn.wip_limit) {
         return c.json({ error: `WIP limit reached for this column (Max: ${targetColumn.wip_limit})` }, 400);
       }
@@ -509,6 +563,9 @@ app.patch('/tasks/:id', async (c) => {
   if (is_urgent !== undefined) { updates.push('is_urgent = ?'); values.push(is_urgent); }
   if (is_important !== undefined) { updates.push('is_important = ?'); values.push(is_important); }
   if (deadline !== undefined) { updates.push('deadline = ?'); values.push(deadline); }
+  if (is_archived !== undefined) { updates.push('is_archived = ?'); values.push(is_archived); }
+  if (archived_at !== undefined) { updates.push('archived_at = ?'); values.push(archived_at); }
+  if (completed_at !== undefined) { updates.push('completed_at = ?'); values.push(completed_at); }
 
   if (updates.length > 0) {
     values.push(taskId, accountId);

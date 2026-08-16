@@ -16,7 +16,8 @@ export default function KanbanBoard({
   setColumns: propSetColumns,
   projects = [],
   selectedProjectId = null,
-  onSelectProject
+  onSelectProject,
+  onArchive
 }) {
   const [localColumns, setLocalColumns] = useState([
     { id: 1, name: 'Backlog', wip_limit: null },
@@ -531,6 +532,7 @@ export default function KanbanBoard({
                             columns={columns}
                             onMovePhase={handleMovePhase}
                             projects={projects}
+                            onArchive={onArchive}
                           />
                         ))
                       )}
@@ -551,6 +553,7 @@ export default function KanbanBoard({
         onSave={handleSaveEdit}
         task={editingTask}
         projects={projects}
+        onArchive={onArchive}
       />
     </div>
   );

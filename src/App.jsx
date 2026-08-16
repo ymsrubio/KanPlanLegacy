@@ -6,7 +6,9 @@ import LoginPage from './components/LoginPage.jsx';
 import UserMenu from './components/UserMenu.jsx';
 import ProjectSelector from './components/ProjectSelector.jsx';
 import ProjectManagerModal from './components/ProjectManagerModal.jsx';
+import ArchiveDrawer from './components/ArchiveDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
+import { processAutoArchiving } from './lib/auto-archiver.js';
 import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
 
 export default function App() {
@@ -17,9 +19,11 @@ export default function App() {
   const [layoutMode, setLayoutMode] = useState('split');
   const [columns, setColumns] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [archivedTasks, setArchivedTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isArchiveDrawerOpen, setIsArchiveDrawerOpen] = useState(false);
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
   const [currentDateStr, setCurrentDateStr] = useState(getTodayDateString());
 
@@ -66,6 +70,11 @@ export default function App() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setTasks(data))
       .catch(() => console.log('Failed to fetch tasks'));
+
+    fetch('/api/tasks/archived')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setArchivedTasks(data))
+      .catch(() => console.log('Failed to fetch archived tasks'));
   }, [authState]);
 
   // Auto-schedule & Midnight New-Day Ticker
@@ -140,12 +149,76 @@ export default function App() {
           showCalendarAlert(`⚡ "${task.title}" automatically moved to ${actionText}!`);
         }
       });
+
+      // 3. 24-hour completed task auto-archiving check
+      if (tasks.length > 0 && columns.length > 0) {
+        const toArchive = processAutoArchiving(tasks, columns, now);
+        if (toArchive.length > 0) {
+          toArchive.forEach(async ({ taskId, task }) => {
+            const archivedItem = { ...task, is_archived: 1, archived_at: now.toISOString() };
+            setTasks((prev) => prev.filter((t) => Number(t.id) !== taskId));
+            setArchivedTasks((prev) => [archivedItem, ...prev]);
+
+            try {
+              await fetch(`/api/tasks/${taskId}/archive`, { method: 'POST' });
+            } catch (err) {
+              console.log('Failed to persist auto-archive to server');
+            }
+
+            showCalendarAlert(`📦 Auto-archived "${task.title}" (completed > 24h ago).`);
+          });
+        }
+      }
     };
 
     runTicker();
     const interval = setInterval(runTicker, 10000);
     return () => clearInterval(interval);
   }, [tasks, columns, autoScheduleEnabled, authState, currentDateStr]);
+
+  // Task Archiving Handlers
+  const handleArchiveTask = async (taskId) => {
+    const taskToArchive = tasks.find((t) => Number(t.id) === Number(taskId));
+    if (!taskToArchive) return;
+
+    const archivedItem = { ...taskToArchive, is_archived: 1, archived_at: new Date().toISOString() };
+    setTasks((prev) => prev.filter((t) => Number(t.id) !== Number(taskId)));
+    setArchivedTasks((prev) => [archivedItem, ...prev]);
+    showCalendarAlert(`📦 "${taskToArchive.title}" moved to Archives.`);
+
+    try {
+      await fetch(`/api/tasks/${taskId}/archive`, { method: 'POST' });
+    } catch (err) {
+      showCalendarAlert('⚠️ Failed to archive task');
+    }
+  };
+
+  const handleRestoreTask = async (taskId) => {
+    const taskToRestore = archivedTasks.find((t) => Number(t.id) === Number(taskId));
+    if (!taskToRestore) return;
+
+    const restoredItem = { ...taskToRestore, is_archived: 0, archived_at: null };
+    setArchivedTasks((prev) => prev.filter((t) => Number(t.id) !== Number(taskId)));
+    setTasks((prev) => [...prev, restoredItem]);
+    showCalendarAlert(`↩️ "${taskToRestore.title}" restored to board!`);
+
+    try {
+      await fetch(`/api/tasks/${taskId}/restore`, { method: 'POST' });
+    } catch (err) {
+      showCalendarAlert('⚠️ Failed to restore task');
+    }
+  };
+
+  const handlePermanentDeleteArchivedTask = async (taskId) => {
+    setArchivedTasks((prev) => prev.filter((t) => Number(t.id) !== Number(taskId)));
+    showCalendarAlert('🗑️ Archived task permanently deleted');
+
+    try {
+      await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+    } catch (err) {
+      showCalendarAlert('⚠️ Failed to delete archived task');
+    }
+  };
 
   // Logout handler
   const handleLogout = async () => {
@@ -398,6 +471,16 @@ export default function App() {
         onDeleteProject={handleDeleteProject}
       />
 
+      {/* Archived Tasks Drawer */}
+      <ArchiveDrawer
+        isOpen={isArchiveDrawerOpen}
+        onClose={() => setIsArchiveDrawerOpen(false)}
+        archivedTasks={archivedTasks}
+        projects={projects}
+        onRestoreTask={handleRestoreTask}
+        onPermanentDelete={handlePermanentDeleteArchivedTask}
+      />
+
       {/* Fixed Header */}
       <header
         style={{
@@ -484,6 +567,40 @@ export default function App() {
             </button>
           </div>
 
+          {/* Archives Trigger Button */}
+          <button
+            onClick={() => setIsArchiveDrawerOpen(true)}
+            title="Open Archived Tasks"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              border: '1px solid #c5c0b1',
+              background: '#fffefb',
+              color: '#201515',
+              fontWeight: '700',
+              padding: '6px 14px',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontSize: '0.85em',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span>📦 Archives</span>
+            <span
+              style={{
+                background: '#f8f4f0',
+                color: '#605d52',
+                padding: '1px 6px',
+                borderRadius: '8px',
+                fontSize: '0.8em',
+                border: '1px solid #c5c0b1'
+              }}
+            >
+              {archivedTasks.length}
+            </span>
+          </button>
+
           {/* Auto-Schedule Toggle Button */}
           <button
             onClick={() => {
@@ -536,6 +653,7 @@ export default function App() {
               projects={projects}
               selectedProjectId={selectedProjectId}
               onSelectProject={setSelectedProjectId}
+              onArchive={handleArchiveTask}
             />
           </div>
         )}

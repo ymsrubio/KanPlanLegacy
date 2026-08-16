@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { getTodayDateString, getCurrentRoundedTime, generate5MinTimeOptions } from '../lib/time-utils.js';
 
-export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects = [] }) {
+export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects = [], onArchive }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState('');
@@ -420,41 +420,70 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '12px', marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid #c5c0b1' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                flex: 1,
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid #c5c0b1',
-                background: 'none',
-                color: '#36342e',
-                fontWeight: '600',
-                cursor: 'pointer',
-                fontSize: '0.9em'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={{
-                flex: 1,
-                padding: '12px',
-                borderRadius: '10px',
-                border: 'none',
-                background: '#ff4f00',
-                color: '#fffefb',
-                fontWeight: '700',
-                cursor: 'pointer',
-                fontSize: '0.9em',
-                boxShadow: '0 2px 4px rgba(255, 79, 0, 0.2)'
-              }}
-            >
-              Save Changes
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid #c5c0b1' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1px solid #c5c0b1',
+                  background: 'none',
+                  color: '#36342e',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '0.9em'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#ff4f00',
+                  color: '#fffefb',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  fontSize: '0.9em',
+                  boxShadow: '0 2px 4px rgba(255, 79, 0, 0.2)'
+                }}
+              >
+                Save Changes
+              </button>
+            </div>
+
+            {onArchive && (
+              <button
+                type="button"
+                onClick={() => {
+                  onArchive(task.id);
+                  onClose();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8f4f0',
+                  color: '#475569',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  fontSize: '0.85em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                📦 Archive Task (Hide from Board)
+              </button>
+            )}
           </div>
         </form>
       </div>

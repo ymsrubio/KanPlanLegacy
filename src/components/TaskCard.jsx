@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { getNextColumn, getPrevColumn } from '../lib/phase-movement.js';
 
-export default function TaskCard({ task, index, onDelete, onEdit, columns, onMovePhase, projects = [] }) {
+export default function TaskCard({ task, index, onDelete, onEdit, columns, onMovePhase, projects = [], onArchive }) {
   const [hovered, setHovered] = useState(false);
   const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
   const importance = task.importance_level || (task.is_important ? 4 : 2);
@@ -182,6 +182,32 @@ export default function TaskCard({ task, index, onDelete, onEdit, columns, onMov
                   ✏️
                 </button>
               )}
+              {onArchive && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onArchive(task.id);
+                  }}
+                  title="Archive task"
+                  style={{
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '0.75em',
+                    color: '#475569',
+                    padding: 0,
+                    lineHeight: 1
+                  }}
+                >
+                  📦
+                </button>
+              )}
               {onDelete && (
                 <button
                   onClick={handleDeleteClick}
@@ -208,7 +234,7 @@ export default function TaskCard({ task, index, onDelete, onEdit, columns, onMov
             </div>
           )}
 
-          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em', paddingRight: hovered ? '80px' : '0' }}>{task.title}</div>
+          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#201515', fontSize: '0.9em', paddingRight: hovered ? '110px' : '0' }}>{task.title}</div>
           {task.description && (
             <div style={{ fontSize: '0.82em', color: '#605d52', marginBottom: '8px' }}>
               {task.description}
