@@ -1,5 +1,5 @@
 // src/components/PhaseTransitionPrototype.jsx
-// Interactive UI Prototype for Issue #53: One-Click Phase Transition Buttons
+// Interactive UI Prototype for Issue #53: One-Click Phase Transition Buttons with Split View Support
 
 import React, { useState } from 'react';
 
@@ -11,15 +11,15 @@ const INITIAL_COLUMNS = [
 ];
 
 const INITIAL_TASKS = [
-  { id: 1, title: 'Design Landing Page Hero', column_id: 1, priority: '🔥 Critical', score: 20 },
-  { id: 2, title: 'Build Stripe Webhook Handler', column_id: 1, priority: '🔶 High', score: 16 },
-  { id: 3, title: 'Setup Google OAuth 2.0', column_id: 2, priority: '🔶 High', score: 15 },
-  { id: 4, title: 'Fix CSS Grid Collisions', column_id: 3, priority: '⚡ Medium', score: 12 },
-  { id: 5, title: 'Refactor Column Service', column_id: 4, priority: '📥 Low', score: 6 }
+  { id: 1, title: 'Design Landing Page Hero', column_id: 1, priority: '🔥 Critical', score: 20, time: '09:00 AM - 10:30 AM' },
+  { id: 2, title: 'Build Stripe Webhook Handler', column_id: 1, priority: '🔶 High', score: 16, time: '02:00 PM - 03:30 PM' },
+  { id: 3, title: 'Setup Google OAuth 2.0', column_id: 2, priority: '🔶 High', score: 15, time: '11:00 AM - 12:00 PM' },
+  { id: 4, title: 'Fix CSS Grid Collisions', column_id: 3, priority: '⚡ Medium', score: 12, time: '04:00 PM - 05:00 PM' },
+  { id: 5, title: 'Refactor Column Service', column_id: 4, priority: '📥 Low', score: 6, time: '08:00 AM - 09:00 AM' }
 ];
 
 export default function PhaseTransitionPrototype({ onClose }) {
-  const [variant, setVariant] = useState(1); // 1: Corner Arrow Chips | 2: Bottom Ribbon | 3: Mini Stepper Bar
+  const [layoutMode, setLayoutMode] = useState('split'); // 'split' | 'kanban'
   const [columns] = useState(INITIAL_COLUMNS);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
   const [wipAlert, setWipAlert] = useState(null);
@@ -49,23 +49,6 @@ export default function PhaseTransitionPrototype({ onClose }) {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, column_id: targetColumn.id } : t));
     setWipAlert(`✅ Moved "${task.title}" to ${targetColumn.name}!`);
     setTimeout(() => setWipAlert(null), 2500);
-  };
-
-  const jumpToColumn = (taskId, targetColId) => {
-    const task = tasks.find(t => t.id === taskId);
-    const targetCol = columns.find(c => c.id === targetColId);
-    if (!task || !targetCol) return;
-
-    if (targetCol.wip_limit) {
-      const targetCount = tasks.filter(t => t.column_id === targetCol.id).length;
-      if (targetCount >= targetCol.wip_limit && task.column_id !== targetCol.id) {
-        setWipAlert(`⚠️ WIP Limit reached for "${targetCol.name}" (Max: ${targetCol.wip_limit}).`);
-        setTimeout(() => setWipAlert(null), 3000);
-        return;
-      }
-    }
-
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, column_id: targetCol.id } : t));
   };
 
   return (
@@ -98,9 +81,44 @@ export default function PhaseTransitionPrototype({ onClose }) {
             PROTOTYPE #53
           </span>
           <span style={{ fontWeight: '700', fontSize: '1.05em' }}>
-            One-Click Phase Transition ("Move to Next Phase") Exploration
+            One-Click Arrow Chips (`◀` / `▶`) on Split View & Kanban
           </span>
         </div>
+
+        {/* View Mode Switcher */}
+        <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.1)', padding: '4px', borderRadius: '10px' }}>
+          <button
+            onClick={() => setLayoutMode('split')}
+            style={{
+              background: layoutMode === 'split' ? '#ff4f00' : 'transparent',
+              color: '#fffefb',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              fontSize: '0.85em'
+            }}
+          >
+            📊 Split View (Kanban + Calendar)
+          </button>
+          <button
+            onClick={() => setLayoutMode('kanban')}
+            style={{
+              background: layoutMode === 'kanban' ? '#ff4f00' : 'transparent',
+              color: '#fffefb',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              fontSize: '0.85em'
+            }}
+          >
+            📋 Full Kanban Board
+          </button>
+        </div>
+
         <button
           onClick={onClose}
           style={{
@@ -134,78 +152,90 @@ export default function PhaseTransitionPrototype({ onClose }) {
         </div>
       )}
 
-      {/* Main Kanban Board representation */}
-      <div style={{ flex: 1, padding: '24px', display: 'flex', gap: '16px', overflowX: 'auto', minHeight: 0, background: '#f8f4f0' }}>
-        {columns.map((col, colIdx) => {
-          const colTasks = tasks.filter(t => t.column_id === col.id);
-          const isAtLimit = col.wip_limit && colTasks.length >= col.wip_limit;
+      {/* Main Workspace Area */}
+      <div style={{ flex: 1, padding: '20px', display: 'flex', gap: '20px', minHeight: 0, background: '#f8f4f0', overflow: 'hidden' }}>
+        {/* Left Kanban Panel */}
+        <div
+          style={{
+            flex: layoutMode === 'split' ? '0 0 340px' : 1,
+            display: 'flex',
+            flexDirection: layoutMode === 'split' ? 'column' : 'row',
+            gap: '14px',
+            overflowY: layoutMode === 'split' ? 'auto' : 'hidden',
+            overflowX: layoutMode === 'split' ? 'hidden' : 'auto',
+            paddingRight: '4px'
+          }}
+        >
+          {columns.map((col, colIdx) => {
+            const colTasks = tasks.filter(t => t.column_id === col.id);
+            const isAtLimit = col.wip_limit && colTasks.length >= col.wip_limit;
 
-          return (
-            <div
-              key={col.id}
-              style={{
-                flex: '1 1 260px',
-                background: '#fffefb',
-                borderRadius: '12px',
-                border: isAtLimit ? '2px solid #ef4444' : '1px solid #c5c0b1',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                overflow: 'hidden'
-              }}
-            >
-              {/* Column Header */}
+            return (
               <div
+                key={col.id}
                 style={{
-                  padding: '12px 16px',
-                  background: col.color + '12',
-                  borderBottom: '1px solid #c5c0b1',
+                  flex: layoutMode === 'split' ? 'none' : '1 1 260px',
+                  background: '#fffefb',
+                  borderRadius: '12px',
+                  border: isAtLimit ? '2px solid #ef4444' : '1px solid #c5c0b1',
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
+                  flexDirection: 'column',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                  marginBottom: layoutMode === 'split' ? '12px' : '0',
+                  overflow: 'hidden'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: col.color }} />
-                  <strong style={{ fontSize: '0.9em' }}>{col.name}</strong>
-                </div>
-                <span
+                {/* Column Header */}
+                <div
                   style={{
-                    fontSize: '0.75em',
-                    fontWeight: '800',
-                    color: isAtLimit ? '#ef4444' : '#605d52',
-                    background: '#fffefb',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    border: '1px solid #c5c0b1'
+                    padding: '10px 14px',
+                    background: col.color + '12',
+                    borderBottom: '1px solid #c5c0b1',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                   }}
                 >
-                  {colTasks.length} {col.wip_limit ? `/ ${col.wip_limit}` : ''}
-                </span>
-              </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: col.color }} />
+                    <strong style={{ fontSize: '0.85em' }}>{col.name}</strong>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.75em',
+                      fontWeight: '800',
+                      color: isAtLimit ? '#ef4444' : '#605d52',
+                      background: '#fffefb',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      border: '1px solid #c5c0b1'
+                    }}
+                  >
+                    {colTasks.length} {col.wip_limit ? `/ ${col.wip_limit}` : ''}
+                  </span>
+                </div>
 
-              {/* Task List */}
-              <div style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
-                {colTasks.map((t) => {
-                  const isHovered = hoveredCardId === t.id;
+                {/* Tasks List */}
+                <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {colTasks.map((t) => {
+                    const isHovered = hoveredCardId === t.id;
 
-                  return (
-                    <div
-                      key={t.id}
-                      onMouseEnter={() => setHoveredCardId(t.id)}
-                      onMouseLeave={() => setHoveredCardId(null)}
-                      style={{
-                        background: '#fffefb',
-                        border: '1px solid #c5c0b1',
-                        borderRadius: '10px',
-                        padding: '12px',
-                        position: 'relative',
-                        boxShadow: isHovered ? '0 6px 16px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      {/* VARIANT 1: Corner Arrow Chips */}
-                      {variant === 1 && (
+                    return (
+                      <div
+                        key={t.id}
+                        onMouseEnter={() => setHoveredCardId(t.id)}
+                        onMouseLeave={() => setHoveredCardId(null)}
+                        style={{
+                          background: '#fffefb',
+                          border: '1px solid #c5c0b1',
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          position: 'relative',
+                          boxShadow: isHovered ? '0 6px 16px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {/* Corner Arrow Chips */}
                         <div style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '4px' }}>
                           {colIdx > 0 && (
                             <button
@@ -215,15 +245,15 @@ export default function PhaseTransitionPrototype({ onClose }) {
                                 background: '#f1f5f9',
                                 border: '1px solid #cbd5e1',
                                 borderRadius: '6px',
-                                width: '24px',
-                                height: '24px',
+                                width: '22px',
+                                height: '22px',
                                 cursor: 'pointer',
                                 fontWeight: '800',
                                 color: '#201515',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '0.8em'
+                                fontSize: '0.75em'
                               }}
                             >
                               ◀
@@ -238,14 +268,14 @@ export default function PhaseTransitionPrototype({ onClose }) {
                                 border: 'none',
                                 color: '#fffefb',
                                 borderRadius: '6px',
-                                width: '24px',
-                                height: '24px',
+                                width: '22px',
+                                height: '22px',
                                 cursor: 'pointer',
                                 fontWeight: '800',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '0.8em',
+                                fontSize: '0.75em',
                                 boxShadow: '0 2px 4px rgba(255, 79, 0, 0.3)'
                               }}
                             >
@@ -253,166 +283,109 @@ export default function PhaseTransitionPrototype({ onClose }) {
                             </button>
                           )}
                         </div>
-                      )}
 
-                      <div style={{ fontWeight: '700', fontSize: '0.9em', marginBottom: '6px', paddingRight: variant === 1 ? '56px' : '0' }}>
-                        {t.title}
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.75em', fontWeight: '700', color: '#ff4f00', background: '#fff1f2', padding: '2px 8px', borderRadius: '10px' }}>
-                          {t.priority}
-                        </span>
-                        <span style={{ fontSize: '0.75em', color: '#605d52' }}>
-                          Score: {t.score}
-                        </span>
-                      </div>
-
-                      {/* VARIANT 2: Bottom Labeled Action Ribbon */}
-                      {variant === 2 && (
-                        <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px dashed #c5c0b1', display: 'flex', gap: '6px' }}>
-                          {colIdx > 0 && (
-                            <button
-                              onClick={() => moveTask(t.id, -1)}
-                              style={{
-                                flex: 1,
-                                background: '#f8f4f0',
-                                border: '1px solid #c5c0b1',
-                                borderRadius: '6px',
-                                padding: '4px 6px',
-                                fontSize: '0.75em',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                color: '#201515'
-                              }}
-                            >
-                              ◀ {columns[colIdx - 1]?.name}
-                            </button>
-                          )}
-                          {colIdx < columns.length - 1 && (
-                            <button
-                              onClick={() => moveTask(t.id, 1)}
-                              style={{
-                                flex: 1,
-                                background: '#ff4f00',
-                                color: '#fffefb',
-                                border: 'none',
-                                borderRadius: '6px',
-                                padding: '4px 6px',
-                                fontSize: '0.75em',
-                                fontWeight: '700',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {columns[colIdx + 1]?.name} ▶
-                            </button>
-                          )}
+                        <div style={{ fontWeight: '700', fontSize: '0.85em', marginBottom: '4px', paddingRight: '54px' }}>
+                          {t.title}
                         </div>
-                      )}
 
-                      {/* VARIANT 3: Mini Stepper Bar */}
-                      {variant === 3 && (
-                        <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #e8e4de', display: 'flex', gap: '4px' }}>
-                          {columns.map((c, idx) => {
-                            const isCurrent = c.id === t.column_id;
-                            const isPast = idx < colIdx;
-
-                            return (
-                              <button
-                                key={c.id}
-                                onClick={() => jumpToColumn(t.id, c.id)}
-                                title={`Move to ${c.name}`}
-                                style={{
-                                  flex: 1,
-                                  height: '6px',
-                                  borderRadius: '3px',
-                                  border: 'none',
-                                  background: isCurrent ? '#ff4f00' : isPast ? '#201515' : '#e2e8f0',
-                                  cursor: 'pointer',
-                                  transition: 'background 0.2s ease'
-                                }}
-                              />
-                            );
-                          })}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                          <span style={{ fontSize: '0.7em', fontWeight: '700', color: '#ff4f00', background: '#fff1f2', padding: '2px 6px', borderRadius: '8px' }}>
+                            {t.priority}
+                          </span>
+                          <span style={{ fontSize: '0.7em', color: '#605d52' }}>
+                            ⏱️ {t.time}
+                          </span>
                         </div>
-                      )}
+                      </div>
+                    );
+                  })}
+
+                  {colTasks.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '16px 8px', color: '#939084', fontSize: '0.75em' }}>
+                      Empty ({col.name})
                     </div>
-                  );
-                })}
-
-                {colTasks.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '24px 8px', color: '#939084', fontSize: '0.8em' }}>
-                    No tasks in {col.name}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* Floating Bottom Variation Switcher */}
-      <div
-        style={{
-          background: '#201515',
-          color: '#fffefb',
-          padding: '12px 24px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderTop: '2px solid #ff4f00'
-        }}
-      >
-        <div style={{ fontSize: '0.85em', fontWeight: '700' }}>
-          Select "Move to Next Phase" Button Design:
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setVariant(1)}
+        {/* Right Calendar Grid (in Split View) */}
+        {layoutMode === 'split' && (
+          <div
             style={{
-              background: variant === 1 ? '#ff4f00' : 'rgba(255,255,255,0.15)',
-              color: '#fffefb',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              fontSize: '0.85em'
+              flex: 1,
+              background: '#fffefb',
+              borderRadius: '16px',
+              border: '1px solid #c5c0b1',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+              overflowY: 'auto'
             }}
           >
-            Variant 1: Top Corner Arrow Chips (◀ / ▶)
-          </button>
-          <button
-            onClick={() => setVariant(2)}
-            style={{
-              background: variant === 2 ? '#ff4f00' : 'rgba(255,255,255,0.15)',
-              color: '#fffefb',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              fontSize: '0.85em'
-            }}
-          >
-            Variant 2: Bottom Labeled Action Ribbon
-          </button>
-          <button
-            onClick={() => setVariant(3)}
-            style={{
-              background: variant === 3 ? '#ff4f00' : 'rgba(255,255,255,0.15)',
-              color: '#fffefb',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              fontSize: '0.85em'
-            }}
-          >
-            Variant 3: Mini Phase Stepper Bar
-          </button>
-        </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15em', fontWeight: '800', color: '#201515' }}>
+                  📅 Today's Calendar Schedule
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.8em', color: '#605d52' }}>
+                  Advancing tasks on the left sidebar reflects their phase progress here
+                </p>
+              </div>
+              <span style={{ fontSize: '0.8em', fontWeight: '700', background: '#f8f4f0', padding: '6px 12px', borderRadius: '8px', border: '1px solid #c5c0b1' }}>
+                ⚡ Auto-Sync Active
+              </span>
+            </div>
+
+            {/* Time Grid slots */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {tasks.map((t) => {
+                const col = columns.find(c => c.id === t.column_id);
+                return (
+                  <div
+                    key={t.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      background: col?.color + '12',
+                      borderLeft: `5px solid ${col?.color || '#ff4f00'}`,
+                      borderTop: '1px solid #e2e8f0',
+                      borderRight: '1px solid #e2e8f0',
+                      borderBottom: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: '800', fontSize: '0.9em' }}>{t.title}</div>
+                      <div style={{ fontSize: '0.75em', color: '#605d52', marginTop: '2px' }}>
+                        ⏱️ {t.time}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.75em',
+                          fontWeight: '800',
+                          background: col?.color,
+                          color: '#fffefb',
+                          padding: '4px 10px',
+                          borderRadius: '12px'
+                        }}
+                      >
+                        {col?.name}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
