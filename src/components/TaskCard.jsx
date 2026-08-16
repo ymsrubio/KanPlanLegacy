@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { getNextColumn, getPrevColumn } from '../lib/phase-movement.js';
 
-export default function TaskCard({ task, index, onDelete, onEdit, columns, onMovePhase }) {
+export default function TaskCard({ task, index, onDelete, onEdit, columns, onMovePhase, projects = [] }) {
   const [hovered, setHovered] = useState(false);
   const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
   const importance = task.importance_level || (task.is_important ? 4 : 2);
@@ -11,6 +11,7 @@ export default function TaskCard({ task, index, onDelete, onEdit, columns, onMov
 
   const prevCol = columns ? getPrevColumn(columns, task.column_id) : null;
   const nextCol = columns ? getNextColumn(columns, task.column_id) : null;
+  const project = task.project_id ? projects.find(p => Number(p.id) === Number(task.project_id)) : null;
 
   const getBadge = () => {
     if (priorityScore >= 20) return { label: `🔥 Critical: ${priorityScore}`, bg: '#ffe4e6', color: '#9f1239', border: '#e11d48', tint: '#fff1f2' };
@@ -214,19 +215,41 @@ export default function TaskCard({ task, index, onDelete, onEdit, columns, onMov
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '0.75em',
-                fontWeight: '700',
-                background: badge.bg,
-                color: badge.color
-              }}
-            >
-              {badge.label}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.75em',
+                  fontWeight: '700',
+                  background: badge.bg,
+                  color: badge.color
+                }}
+              >
+                {badge.label}
+              </span>
+
+              {project && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.75em',
+                    fontWeight: '700',
+                    background: (project.color || '#ff4f00') + '18',
+                    color: project.color || '#ff4f00',
+                    border: `1px solid ${(project.color || '#ff4f00')}40`
+                  }}
+                >
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: project.color || '#ff4f00' }} />
+                  {project.name}
+                </span>
+              )}
+            </div>
 
             {task.deadline && (
               <span

@@ -4,6 +4,8 @@ import CalendarGrid from './components/CalendarGrid.jsx';
 import WipSwapModal from './components/WipSwapModal.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import UserMenu from './components/UserMenu.jsx';
+import ProjectSelector from './components/ProjectSelector.jsx';
+import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
 
@@ -15,6 +17,9 @@ export default function App() {
   const [layoutMode, setLayoutMode] = useState('split');
   const [columns, setColumns] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
   const [currentDateStr, setCurrentDateStr] = useState(getTodayDateString());
 
@@ -51,6 +56,11 @@ export default function App() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setColumns(data))
       .catch(() => console.log('Failed to fetch columns'));
+
+    fetch('/api/projects')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setProjects(data))
+      .catch(() => console.log('Failed to fetch projects'));
 
     fetch('/api/tasks')
       .then((res) => (res.ok ? res.json() : null))
@@ -258,6 +268,47 @@ export default function App() {
     setWipSwapState(null);
   };
 
+  const handleAddProject = async (projectData) => {
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projectData)
+      });
+      if (res.ok) {
+        const newProject = await res.json();
+        setProjects((prev) => [...prev, newProject]);
+        showCalendarAlert(`✅ Project "${newProject.name}" created!`);
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create project');
+      }
+    } catch (err) {
+      showCalendarAlert(`⚠️ ${err.message}`);
+      throw err;
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setProjects((prev) => prev.filter((p) => p.id !== projectId));
+        setTasks((prev) =>
+          prev.map((t) => (Number(t.project_id) === Number(projectId) ? { ...t, project_id: null } : t))
+        );
+        if (Number(selectedProjectId) === Number(projectId)) {
+          setSelectedProjectId(null);
+        }
+        showCalendarAlert('🗑️ Project deleted');
+      }
+    } catch (err) {
+      showCalendarAlert('⚠️ Failed to delete project');
+    }
+  };
+
   // --- Render ---
 
   // Loading state
@@ -287,51 +338,64 @@ export default function App() {
     return <LoginPage />;
   }
 
-  // Authenticated — show board
+  // Authenticated — show workspace
   return (
     <div
       style={{
-        padding: '20px 24px',
-        fontFamily: 'Inter, system-ui, sans-serif',
-        background: '#fffefb',
-        height: '100vh',
-        maxHeight: '100vh',
-        boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        background: '#fffefb',
+        boxSizing: 'border-box',
+        padding: '16px',
         overflow: 'hidden',
-        color: '#201515'
+        fontFamily: 'Inter, system-ui, sans-serif'
       }}
     >
-      {/* Calendar-level toast */}
+      {/* Calendar Toast Notification */}
       {calendarAlert && (
         <div
           style={{
             position: 'fixed',
-            bottom: '24px',
-            right: '24px',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             background: '#201515',
             color: '#fffefb',
-            padding: '12px 20px',
-            borderRadius: '12px',
+            padding: '10px 24px',
+            borderRadius: '10px',
+            fontWeight: '700',
             fontSize: '0.9em',
-            fontWeight: '600',
-            zIndex: 9999,
-            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
-            animation: 'fadeIn 0.3s ease'
+            boxShadow: '0 8px 24px rgba(32, 21, 21, 0.25)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            border: '1px solid #ff4f00'
           }}
         >
           {calendarAlert}
         </div>
       )}
 
-      {/* WIP Swap Modal */}
+      {/* Interactive WIP Swap Modal */}
       <WipSwapModal
         isOpen={Boolean(wipSwapState)}
         onClose={() => setWipSwapState(null)}
         onSwap={handleWipSwap}
         readyTasks={wipSwapState?.readyTasks || []}
         pendingTask={wipSwapState?.pendingTask}
+        projects={projects}
+      />
+
+      {/* Project & Category Manager Modal */}
+      <ProjectManagerModal
+        isOpen={isProjectModalOpen}
+        onClose={() => setIsProjectModalOpen(false)}
+        projects={projects}
+        onAddProject={handleAddProject}
+        onDeleteProject={handleDeleteProject}
       />
 
       {/* Fixed Header */}
@@ -360,6 +424,14 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Project Selector & Filter */}
+          <ProjectSelector
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+            onOpenManager={() => setIsProjectModalOpen(true)}
+          />
+
           {/* View Mode Toggle */}
           <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '4px', borderRadius: '12px', border: '1px solid #c5c0b1' }}>
             <button
@@ -456,7 +528,15 @@ export default function App() {
               paddingRight: '4px'
             }}
           >
-            <KanbanBoard tasks={tasks} setTasks={setTasks} columns={columns} setColumns={setColumns} />
+            <KanbanBoard
+              tasks={tasks}
+              setTasks={setTasks}
+              columns={columns}
+              setColumns={setColumns}
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onSelectProject={setSelectedProjectId}
+            />
           </div>
         )}
 
@@ -473,6 +553,9 @@ export default function App() {
             <CalendarGrid
               tasks={tasks}
               columns={columns}
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onSelectProject={setSelectedProjectId}
               onScheduleChange={handleScheduleChange}
               onExternalDrop={handleExternalDrop}
             />

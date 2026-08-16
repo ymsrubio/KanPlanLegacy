@@ -21,6 +21,12 @@ const DEFAULT_COLUMNS = [
   { name: 'Done', position: 3, wip_limit: null }
 ];
 
+const DEFAULT_PROJECTS = [
+  { name: 'General', color: '#64748b' },
+  { name: 'Work', color: '#ff4f00' },
+  { name: 'Personal', color: '#10b981' }
+];
+
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 async function findOrCreateAccountD1(db, profile) {
@@ -37,6 +43,17 @@ async function findOrCreateAccountD1(db, profile) {
     await db.prepare(
       'INSERT INTO columns (account_id, name, position, wip_limit) VALUES (?, ?, ?, ?)'
     ).bind(id, col.name, col.position, col.wip_limit).run();
+  }
+
+  // Seed default projects
+  for (const proj of DEFAULT_PROJECTS) {
+    try {
+      await db.prepare(
+        'INSERT INTO projects (account_id, name, color) VALUES (?, ?, ?)'
+      ).bind(id, proj.name, proj.color).run();
+    } catch {
+      // Ignore if exists
+    }
   }
 
   return await db.prepare('SELECT * FROM accounts WHERE id = ?').bind(id).first();
@@ -109,10 +126,22 @@ async function ensureSchemaD1(db) {
     `).run();
 
     await db.prepare(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#ff4f00',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(account_id, name)
+      )
+    `).run();
+
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
         column_id INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+        project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
         title TEXT NOT NULL,
         description TEXT,
         is_urgent INTEGER DEFAULT 0,
@@ -127,6 +156,13 @@ async function ensureSchemaD1(db) {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
+
+    // Safe migration: ensure project_id exists on tasks table if created previously
+    try {
+      await db.prepare('ALTER TABLE tasks ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL').run();
+    } catch {
+      // Column already exists
+    }
 
     schemaInitialized = true;
   } catch (err) {
@@ -327,6 +363,53 @@ app.post('/columns', async (c) => {
 });
 
 // ============================================================
+// Project routes (account-scoped)
+// ============================================================
+
+app.get('/projects', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const { results } = await db.prepare('SELECT * FROM projects WHERE account_id = ? ORDER BY id ASC').bind(accountId).all();
+  return c.json(results);
+});
+
+app.post('/projects', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const { name, color = '#ff4f00' } = await c.req.json();
+
+  if (!name || !name.trim()) {
+    return c.json({ error: 'Project name is required' }, 400);
+  }
+
+  const trimmedName = name.trim();
+  const trimmedColor = color?.trim() || '#ff4f00';
+
+  const { meta } = await db.prepare('INSERT INTO projects (account_id, name, color) VALUES (?, ?, ?)')
+    .bind(accountId, trimmedName, trimmedColor)
+    .run();
+
+  return c.json({ id: meta.last_row_id, account_id: accountId, name: trimmedName, color: trimmedColor }, 201);
+});
+
+app.delete('/projects/:id', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const projectId = Number(c.req.param('id'));
+
+  const existing = await db.prepare('SELECT * FROM projects WHERE id = ? AND account_id = ?').bind(projectId, accountId).first();
+  if (!existing) return c.json({ error: 'Project not found' }, 404);
+
+  // Unassign tasks from this project
+  await db.prepare('UPDATE tasks SET project_id = NULL WHERE project_id = ? AND account_id = ?').bind(projectId, accountId).run();
+
+  // Delete project
+  await db.prepare('DELETE FROM projects WHERE id = ? AND account_id = ?').bind(projectId, accountId).run();
+
+  return c.json({ ok: true });
+});
+
+// ============================================================
 // Task routes (account-scoped)
 // ============================================================
 
@@ -342,7 +425,7 @@ app.post('/tasks', async (c) => {
   const accountId = c.get('accountId');
   const taskData = await c.req.json();
   const {
-    column_id, title, description,
+    column_id, project_id, title, description,
     is_urgent, is_important,
     urgency_level, importance_level,
     schedule_start, schedule_end, deadline, color_tag
@@ -367,10 +450,10 @@ app.post('/tasks', async (c) => {
   }
 
   const { meta } = await db.prepare(
-    `INSERT INTO tasks (account_id, column_id, title, description, is_urgent, is_important, urgency_level, importance_level, schedule_start, schedule_end, deadline, color_tag)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO tasks (account_id, column_id, project_id, title, description, is_urgent, is_important, urgency_level, importance_level, schedule_start, schedule_end, deadline, color_tag)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
-    accountId, column_id, title, description || null,
+    accountId, column_id, project_id ? Number(project_id) : null, title, description || null,
     finalUrgency >= 4 ? 1 : 0,
     finalImportance >= 4 ? 1 : 0,
     finalUrgency, finalImportance,
@@ -381,6 +464,7 @@ app.post('/tasks', async (c) => {
   return c.json({
     id: meta.last_row_id,
     ...taskData,
+    project_id: project_id ? Number(project_id) : null,
     urgency_level: finalUrgency,
     importance_level: finalImportance,
     priority_score: finalUrgency * finalImportance
@@ -392,7 +476,7 @@ app.patch('/tasks/:id', async (c) => {
   const accountId = c.get('accountId');
   const taskId = Number(c.req.param('id'));
   const body = await c.req.json();
-  const { column_id, position, schedule_start, schedule_end, title, description, urgency_level, importance_level, is_urgent, is_important, deadline } = body;
+  const { column_id, project_id, position, schedule_start, schedule_end, title, description, urgency_level, importance_level, is_urgent, is_important, deadline } = body;
 
   const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND account_id = ?').bind(taskId, accountId).first();
   if (!task) return c.json({ error: 'Task not found' }, 400);
@@ -414,6 +498,7 @@ app.patch('/tasks/:id', async (c) => {
   const updates = [];
   const values = [];
   if (column_id !== undefined) { updates.push('column_id = ?'); values.push(column_id); }
+  if (project_id !== undefined) { updates.push('project_id = ?'); values.push(project_id ? Number(project_id) : null); }
   if (position !== undefined) { updates.push('position = ?'); values.push(position); }
   if (schedule_start !== undefined) { updates.push('schedule_start = ?'); values.push(schedule_start); }
   if (schedule_end !== undefined) { updates.push('schedule_end = ?'); values.push(schedule_end); }

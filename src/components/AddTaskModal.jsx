@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
-export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }) {
+export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [], projects = [], defaultProjectId = null }) {
   const defaultColId = columns?.[0]?.id;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
   const [columnId, setColumnId] = useState(defaultColId);
+  const [projectId, setProjectId] = useState(defaultProjectId ? String(defaultProjectId) : '');
   const [urgencyLevel, setUrgencyLevel] = useState(3);
   const [importanceLevel, setImportanceLevel] = useState(3);
 
@@ -13,7 +14,10 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
     if (columns && columns.length > 0) {
       setColumnId((prev) => (prev && columns.some(c => c.id === prev) ? prev : columns[0].id));
     }
-  }, [columns, isOpen]);
+    if (isOpen) {
+      setProjectId(defaultProjectId ? String(defaultProjectId) : '');
+    }
+  }, [columns, isOpen, defaultProjectId]);
 
   if (!isOpen) return null;
 
@@ -27,6 +31,7 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
       description,
       deadline,
       column_id: targetColId,
+      project_id: projectId ? Number(projectId) : null,
       is_urgent: urgencyLevel >= 4 ? 1 : 0,
       is_important: importanceLevel >= 4 ? 1 : 0,
       urgency_level: urgencyLevel,
@@ -38,6 +43,7 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
     setDescription('');
     setDeadline('');
     setColumnId(columns?.[0]?.id);
+    setProjectId('');
     setUrgencyLevel(3);
     setImportanceLevel(3);
   };
@@ -182,6 +188,33 @@ export default function AddTaskModal({ isOpen, onClose, onSubmit, columns = [] }
               {columns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.wip_limit ? `(Max WIP: ${c.wip_limit})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '600', marginBottom: '6px', color: '#36342e' }}>
+              📁 Project / Category (Optional)
+            </label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid #c5c0b1',
+                background: '#fffefb',
+                color: '#201515',
+                fontSize: '0.95em',
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value="">No Project (General)</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  ● {p.name}
                 </option>
               ))}
             </select>

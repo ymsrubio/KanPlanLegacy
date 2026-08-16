@@ -9,7 +9,15 @@ import ScheduleModal from './ScheduleModal.jsx';
 import TaskEditDrawer from './TaskEditDrawer.jsx';
 import { getNextColumn, getPrevColumn, canMoveToColumn } from '../lib/phase-movement.js';
 
-export default function KanbanBoard({ tasks, setTasks, columns: propColumns, setColumns: propSetColumns }) {
+export default function KanbanBoard({
+  tasks,
+  setTasks,
+  columns: propColumns,
+  setColumns: propSetColumns,
+  projects = [],
+  selectedProjectId = null,
+  onSelectProject
+}) {
   const [localColumns, setLocalColumns] = useState([
     { id: 1, name: 'Backlog', wip_limit: null },
     { id: 2, name: 'Ready to Start', wip_limit: 3 },
@@ -206,6 +214,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
 
     const newTaskPayload = {
       column_id: targetColId,
+      project_id: taskData.project_id ? Number(taskData.project_id) : null,
       title: taskData.title.trim(),
       description: taskData.description || '',
       is_urgent: taskData.is_urgent,
@@ -278,6 +287,8 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddTaskData}
         columns={columns}
+        projects={projects}
+        defaultProjectId={selectedProjectId}
       />
 
       {/* Schedule Time Block Modal */}
@@ -326,7 +337,41 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
           alignItems: 'center'
         }}
       >
-        <div style={{ flex: 1, minWidth: '120px' }}>
+        {/* Project / Category Filter */}
+        <div style={{ flex: 1, minWidth: '110px' }}>
+          <label style={{ display: 'block', fontSize: '0.75em', fontWeight: '700', color: '#605d52', marginBottom: '2px' }}>
+            📁 Project Filter
+          </label>
+          <select
+            value={selectedProjectId || ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (onSelectProject) {
+                onSelectProject(val ? Number(val) : null);
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              borderRadius: '6px',
+              border: selectedProjectId ? '1.5px solid #ff4f00' : '1px solid #c5c0b1',
+              background: '#fffefb',
+              fontSize: '0.82em',
+              fontWeight: '700',
+              color: '#201515'
+            }}
+          >
+            <option value="">📁 All Projects</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                ● {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Priority Sorter */}
+        <div style={{ flex: 1, minWidth: '110px' }}>
           <label style={{ display: 'block', fontSize: '0.75em', fontWeight: '700', color: '#605d52', marginBottom: '2px' }}>
             Sort Priority
           </label>
@@ -344,13 +389,14 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
               color: '#201515'
             }}
           >
-            <option value="priority-desc">🔥 High ➔ Low Priority</option>
-            <option value="priority-asc">📥 Low ➔ High Priority</option>
-            <option value="default">📋 Default Position</option>
+            <option value="priority-desc">🔥 High ➔ Low</option>
+            <option value="priority-asc">📥 Low ➔ High</option>
+            <option value="default">📋 Default</option>
           </select>
         </div>
 
-        <div style={{ flex: 1, minWidth: '120px' }}>
+        {/* Priority Tier Filter */}
+        <div style={{ flex: 1, minWidth: '110px' }}>
           <label style={{ display: 'block', fontSize: '0.75em', fontWeight: '700', color: '#605d52', marginBottom: '2px' }}>
             Filter Tier
           </label>
@@ -383,6 +429,12 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
           {columns.map((col) => {
             let colTasks = tasks.filter((t) => Number(t.column_id) === Number(col.id));
 
+            // Project filtering
+            if (selectedProjectId) {
+              colTasks = colTasks.filter((t) => Number(t.project_id) === Number(selectedProjectId));
+            }
+
+            // Priority tier filtering
             if (filterTier !== 'all') {
               colTasks = colTasks.filter((t) => {
                 const score = getTaskPriorityScore(t);
@@ -401,6 +453,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
             }
 
             const isFull = col.wip_limit !== null && colTasks.length >= col.wip_limit;
+            const activeProj = selectedProjectId ? projects.find((p) => Number(p.id) === Number(selectedProjectId)) : null;
 
             return (
               <Droppable key={col.id} droppableId={String(col.id)}>
@@ -452,17 +505,35 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
                     </div>
 
                     <div style={{ minHeight: '60px' }}>
-                      {colTasks.map((task, index) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          index={index}
-                          onDelete={handleDeleteTask}
-                          onEdit={(t) => setEditingTask(t)}
-                          columns={columns}
-                          onMovePhase={handleMovePhase}
-                        />
-                      ))}
+                      {colTasks.length === 0 ? (
+                        <div
+                          style={{
+                            textAlign: 'center',
+                            padding: '18px 12px',
+                            color: '#939084',
+                            fontSize: '0.82em',
+                            fontStyle: 'italic',
+                            border: '1px dashed #d5d0c3',
+                            borderRadius: '8px',
+                            background: '#fffefb'
+                          }}
+                        >
+                          {activeProj ? `No "${activeProj.name}" tasks in ${col.name}` : 'No tasks in this lane'}
+                        </div>
+                      ) : (
+                        colTasks.map((task, index) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            index={index}
+                            onDelete={handleDeleteTask}
+                            onEdit={(t) => setEditingTask(t)}
+                            columns={columns}
+                            onMovePhase={handleMovePhase}
+                            projects={projects}
+                          />
+                        ))
+                      )}
                       {provided.placeholder}
                     </div>
                   </div>
@@ -479,6 +550,7 @@ export default function KanbanBoard({ tasks, setTasks, columns: propColumns, set
         onClose={() => setEditingTask(null)}
         onSave={handleSaveEdit}
         task={editingTask}
+        projects={projects}
       />
     </div>
   );

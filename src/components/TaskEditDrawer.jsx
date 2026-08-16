@@ -4,9 +4,10 @@
 import React, { useState, useEffect } from 'react';
 import { getTodayDateString, getCurrentRoundedTime, generate5MinTimeOptions } from '../lib/time-utils.js';
 
-export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
+export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects = [] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [urgencyLevel, setUrgencyLevel] = useState(3);
   const [importanceLevel, setImportanceLevel] = useState(3);
   const [deadline, setDeadline] = useState('');
@@ -21,6 +22,7 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
     if (task) {
       setTitle(task.title || '');
       setDescription(task.description || '');
+      setProjectId(task.project_id ? String(task.project_id) : '');
       setUrgencyLevel(task.urgency_level || (task.is_urgent ? 4 : 2));
       setImportanceLevel(task.importance_level || (task.is_important ? 4 : 2));
       setDeadline(task.deadline || '');
@@ -78,6 +80,7 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
       ...task,
       title: title.trim(),
       description,
+      project_id: projectId ? Number(projectId) : null,
       urgency_level: urgencyLevel,
       importance_level: importanceLevel,
       is_urgent: urgencyLevel >= 4 ? 1 : 0,
@@ -168,6 +171,33 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task }) {
                 boxSizing: 'border-box'
               }}
             />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
+              📁 Project / Category
+            </label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid #c5c0b1',
+                background: '#fffefb',
+                color: '#201515',
+                fontSize: '0.95em',
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value="">No Project (General)</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  ● {p.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

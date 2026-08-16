@@ -16,31 +16,50 @@ function getPriorityClass(task) {
   return 'priority-low';
 }
 
-export default function CalendarGrid({ tasks, columns = [], onScheduleChange, onExternalDrop }) {
+export default function CalendarGrid({
+  tasks,
+  columns = [],
+  projects = [],
+  selectedProjectId = null,
+  onSelectProject,
+  onScheduleChange,
+  onExternalDrop
+}) {
   const doneCol = columns.find((c) => c.name === 'Done');
+
+  // Filter tasks based on selected project
+  const filteredTasks = useMemo(() => {
+    if (!selectedProjectId) return tasks;
+    return tasks.filter((t) => Number(t.project_id) === Number(selectedProjectId));
+  }, [tasks, selectedProjectId]);
 
   // Convert tasks → FullCalendar events
   const events = useMemo(() => {
-    return tasks
+    return filteredTasks
       .filter((t) => t.schedule_start)
       .map((t) => {
         const isDone = doneCol ? Number(t.column_id) === Number(doneCol.id) : false;
         const priorityClass = getPriorityClass(t);
+        const project = t.project_id ? projects.find((p) => Number(p.id) === Number(t.project_id)) : null;
+
         return {
           id: String(t.id),
           title: t.title,
           start: t.schedule_start,
           end: t.schedule_end || undefined,
+          backgroundColor: project?.color ? `${project.color}30` : undefined,
+          borderColor: project?.color || undefined,
           classNames: [priorityClass, isDone ? 'event-done' : ''],
           extendedProps: {
             taskId: t.id,
             description: t.description,
             column_id: t.column_id,
+            project_id: t.project_id,
             priority_score: t.priority_score
           }
         };
       });
-  }, [tasks, doneCol]);
+  }, [filteredTasks, doneCol, projects]);
 
   // On-calendar drag to reschedule
   const handleEventDrop = (info) => {
@@ -82,7 +101,7 @@ export default function CalendarGrid({ tasks, columns = [], onScheduleChange, on
         background: '#f8f4f0',
         borderRadius: '12px',
         border: '1px solid #c5c0b1',
-        padding: '8px',
+        padding: '12px',
         flex: 1,
         height: '100%',
         display: 'flex',
@@ -92,6 +111,78 @@ export default function CalendarGrid({ tasks, columns = [], onScheduleChange, on
         overflow: 'hidden'
       }}
     >
+      {/* Project Filter Chip Bar */}
+      {projects.length > 0 && onSelectProject && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: '8px',
+            marginBottom: '8px',
+            borderBottom: '1px solid #e8e4de',
+            minHeight: '36px'
+          }}
+        >
+          <span style={{ fontSize: '0.75em', fontWeight: '800', color: '#605d52', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: '4px' }}>
+            Filter:
+          </span>
+          <button
+            onClick={() => onSelectProject(null)}
+            style={{
+              padding: '4px 10px',
+              borderRadius: '12px',
+              border: selectedProjectId === null ? '1px solid #ff4f00' : '1px solid #c5c0b1',
+              background: selectedProjectId === null ? '#ff4f00' : '#fffefb',
+              color: selectedProjectId === null ? '#fffefb' : '#201515',
+              fontSize: '0.75em',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            All Projects ({tasks.filter((t) => t.schedule_start).length})
+          </button>
+          {projects.map((p) => {
+            const count = tasks.filter((t) => t.schedule_start && Number(t.project_id) === Number(p.id)).length;
+            const isSelected = Number(selectedProjectId) === Number(p.id);
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => onSelectProject(isSelected ? null : p.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  border: isSelected ? `2px solid ${p.color || '#ff4f00'}` : '1px solid #c5c0b1',
+                  background: isSelected ? (p.color || '#ff4f00') : '#fffefb',
+                  color: isSelected ? '#fffefb' : '#201515',
+                  fontSize: '0.75em',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: isSelected ? '#fffefb' : (p.color || '#ff4f00')
+                  }}
+                />
+                {p.name} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridDay"

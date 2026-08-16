@@ -1,7 +1,7 @@
 // src/components/WipSwapModal.jsx
 import React from 'react';
 
-export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pendingTask }) {
+export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pendingTask, projects = [] }) {
   if (!isOpen || !pendingTask) return null;
 
   return (
@@ -100,8 +100,33 @@ export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pend
             >
               <span style={{ fontSize: '1.2em' }}>↩️</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: '600', fontSize: '0.92em', color: '#201515' }}>
-                  {task.title}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: '700', fontSize: '0.92em', color: '#201515' }}>
+                    {task.title}
+                  </span>
+                  {task.project_id && (() => {
+                    const proj = projects.find((p) => Number(p.id) === Number(task.project_id));
+                    if (!proj) return null;
+                    return (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '1px 6px',
+                          borderRadius: '8px',
+                          fontSize: '0.72em',
+                          fontWeight: '700',
+                          background: (proj.color || '#ff4f00') + '18',
+                          color: proj.color || '#ff4f00',
+                          border: `1px solid ${(proj.color || '#ff4f00')}40`
+                        }}
+                      >
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: proj.color || '#ff4f00' }} />
+                        {proj.name}
+                      </span>
+                    );
+                  })()}
                 </div>
                 {task.description && (
                   <div style={{ fontSize: '0.78em', color: '#605d52', marginTop: '2px' }}>
