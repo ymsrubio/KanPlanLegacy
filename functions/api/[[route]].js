@@ -298,9 +298,9 @@ app.get('/auth/google/callback', async (c) => {
     maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
   });
 
-  const referer = c.req.header('referer');
-  const targetUrl = referer ? new URL(referer).origin : (c.env.APP_URL || '/');
-  return c.redirect(targetUrl);
+  // Don't use the referer here — after the OAuth round-trip it points at accounts.google.com,
+  // which bounces signed-in users to myaccount.google.com instead of back to the app.
+  return c.redirect(c.env.APP_URL || '/');
 });
 
 // Local dev login helper — enables instant local testing without external Google OAuth setup
