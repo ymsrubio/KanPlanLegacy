@@ -35,7 +35,9 @@ export default function DayList({ tasks, columns, projects = [], selectedProject
             const pi = projects.findIndex((p) => Number(p.id) === Number(t.project_id));
             return (
               <div key={t.id} className="dl-row" onClick={() => onEditTask?.(t)}>
-                <input className="dl-check" type="checkbox" aria-label={`Complete ${t.title}`} onClick={(e) => e.stopPropagation()} onChange={() => onComplete?.(t)} />
+                <label className="dl-tap" onClick={(e) => e.stopPropagation()}>
+                  <input className="dl-check" type="checkbox" aria-label={`Complete ${t.title}`} onChange={() => onComplete?.(t)} />
+                </label>
                 <span className="dl-title">{t.title}</span>
                 {t.id === nextId && <span className="dl-next">Next</span>}
                 {mark && <span className="dl-mark" role="img" aria-label={mark.label}>{mark.text}</span>}

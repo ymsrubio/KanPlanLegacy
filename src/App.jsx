@@ -10,6 +10,9 @@ import ArchiveDrawer from './components/ArchiveDrawer.jsx';
 import DayList from './components/DayList.jsx';
 import AddTask from './components/AddTask.jsx';
 import MatrixView from './components/MatrixView.jsx';
+import BottomSheet from './components/BottomSheet.jsx';
+import ViewToggle from './components/ViewToggle.jsx';
+import { useMedia } from './lib/use-media.js';
 import TaskEditDrawer from './components/TaskEditDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
@@ -22,6 +25,10 @@ export default function App() {
   const [user, setUser] = useState(null);
 
   const [layoutMode, setLayoutMode] = useState('split');
+  const isPhone = useMedia('(max-width: 640px)');
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // Phones only have List / Calendar / Matrix; everything else falls back to List.
+  const view = isPhone && !['list', 'calendar', 'matrix'].includes(layoutMode) ? 'list' : layoutMode;
   const [columns, setColumns] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [archivedTasks, setArchivedTasks] = useState([]);
@@ -41,6 +48,11 @@ export default function App() {
     setCalendarAlert(msg);
     setTimeout(() => setCalendarAlert(null), 4000);
   };
+
+  // The calendar stays mounted (hidden) on phones to keep its state; let it re-measure when shown.
+  useEffect(() => {
+    if (isPhone && view === 'calendar') window.dispatchEvent(new Event('resize'));
+  }, [isPhone, view]);
 
   // Check auth on mount
   useEffect(() => {
@@ -455,11 +467,10 @@ export default function App() {
   // Authenticated — show workspace
   return (
     <div
+      className="app-root"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
-        width: '100vw',
         background: '#fffefb',
         boxSizing: 'border-box',
         padding: '16px',
@@ -554,12 +565,14 @@ export default function App() {
           <h1 style={{ margin: 0, fontSize: '1.4em', color: '#201515', fontWeight: '700', letterSpacing: '-0.5px' }}>
             🎯 KanPlan
           </h1>
-          <p style={{ margin: '2px 0 0 0', fontSize: '0.85em', color: '#605d52' }}>
-            Agile Kanban WIP Limits + Calendar Time Blocking
-          </p>
+          {!isPhone && (
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.85em', color: '#605d52' }}>
+              Agile Kanban WIP Limits + Calendar Time Blocking
+            </p>
+          )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Project Selector & Filter */}
           <ProjectSelector
             projects={projects}
@@ -569,6 +582,9 @@ export default function App() {
           />
 
           {/* View Mode Toggle */}
+          {isPhone ? (
+            <ViewToggle view={view} onChange={setLayoutMode} />
+          ) : (
           <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '4px', borderRadius: '12px', border: '1px solid #c5c0b1' }}>
             <button
               onClick={() => setLayoutMode('list')}
@@ -651,6 +667,7 @@ export default function App() {
               📅 Calendar Only
             </button>
           </div>
+          )}
 
           {/* Archives Trigger Button */}
           <button
@@ -665,6 +682,7 @@ export default function App() {
               color: '#201515',
               fontWeight: '700',
               padding: '6px 14px',
+              minHeight: isPhone ? 44 : undefined,
               borderRadius: '12px',
               cursor: 'pointer',
               fontSize: '0.85em',
@@ -705,6 +723,7 @@ export default function App() {
               color: autoScheduleEnabled ? '#15803d' : '#605d52',
               fontWeight: '700',
               padding: '6px 14px',
+              minHeight: isPhone ? 44 : undefined,
               borderRadius: '12px',
               cursor: 'pointer',
               fontSize: '0.85em',
@@ -720,17 +739,20 @@ export default function App() {
       </header>
 
       {/* Main Workspace */}
-      <main style={{ flex: 1, minHeight: 0, display: 'flex', gap: '20px', alignItems: 'stretch', overflow: 'hidden' }}>
-        {layoutMode === 'list' && (
-          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <AddTask
-              tasks={tasks}
-              columns={columns}
-              projects={projects}
-              defaultProjectId={selectedProjectId}
-              onAdd={handleAddTask}
-              onCreateProject={(name, color) => handleAddProject({ name, color })}
-            />
+      <main style={{ flex: 1, minHeight: 0, display: 'flex', gap: '20px', alignItems: 'stretch', overflow: 'hidden', paddingBottom: isPhone ? '72px' : 0 }}>
+        {/* On phones the three views stay mounted and hidden so switching keeps their state */}
+        {(isPhone || view === 'list') && (
+          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '640px', display: isPhone && view !== 'list' ? 'none' : 'flex', flexDirection: 'column', gap: '24px' }}>
+            {!isPhone && (
+              <AddTask
+                tasks={tasks}
+                columns={columns}
+                projects={projects}
+                defaultProjectId={selectedProjectId}
+                onAdd={handleAddTask}
+                onCreateProject={(name, color) => handleAddProject({ name, color })}
+              />
+            )}
             <DayList
               tasks={tasks}
               columns={columns}
@@ -742,8 +764,8 @@ export default function App() {
           </div>
         )}
 
-        {layoutMode === 'matrix' && (
-          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '760px' }}>
+        {(isPhone || view === 'matrix') && (
+          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '760px', display: isPhone && view !== 'matrix' ? 'none' : 'block' }}>
             <MatrixView
               tasks={tasks}
               columns={columns}
@@ -755,10 +777,10 @@ export default function App() {
           </div>
         )}
 
-        {(layoutMode === 'split' || layoutMode === 'kanban') && (
+        {(view === 'split' || view === 'kanban') && (
           <div
             style={{
-              flex: layoutMode === 'split' ? '0 0 320px' : 1,
+              flex: view === 'split' ? '0 0 320px' : 1,
               height: '100%',
               overflowY: 'auto',
               paddingRight: '4px'
@@ -779,13 +801,13 @@ export default function App() {
           </div>
         )}
 
-        {(layoutMode === 'split' || layoutMode === 'calendar') && (
+        {(isPhone || view === 'split' || view === 'calendar') && (
           <div
             style={{
               flex: 1,
               height: '100%',
               overflowY: 'auto',
-              display: 'flex',
+              display: isPhone && view !== 'calendar' ? 'none' : 'flex',
               flexDirection: 'column'
             }}
           >
@@ -802,6 +824,21 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {isPhone && !sheetOpen && (
+        <button type="button" className="phone-add" onClick={() => setSheetOpen(true)}>Add task</button>
+      )}
+      <BottomSheet open={isPhone && sheetOpen} onClose={() => setSheetOpen(false)} title="Add task">
+        <AddTask
+          tasks={tasks}
+          columns={columns}
+          projects={projects}
+          defaultProjectId={selectedProjectId}
+          onAdd={handleAddTask}
+          onCreateProject={(name, color) => handleAddProject({ name, color })}
+          onDone={() => setSheetOpen(false)}
+        />
+      </BottomSheet>
     </div>
   );
 }

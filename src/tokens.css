@@ -25,6 +25,10 @@
   --h-ctl: 44px;
   --h-row: 44px;
 }
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) and (pointer: fine) and (min-width: 641px) {
   :root { --h-ctl: 40px; --h-row: 40px; }
 }
+
+/* Full-height app shell that respects mobile browser chrome */
+html, body { margin: 0; }
+.app-root { width: 100%; height: 100vh; height: 100dvh; }

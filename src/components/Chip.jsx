@@ -36,7 +36,7 @@ export default function Chip({ label, children, ariaLabel }) {
 
   return (
     <span className="at-wrap" ref={wrap}>
-      <button type="button" ref={btn} className="at-chip" aria-haspopup="true" aria-expanded={open} aria-label={ariaLabel} onClick={() => setOpen((o) => !o)}>
+      <button type="button" ref={btn} className="at-chip" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         {label}<span aria-hidden="true">▾</span>
       </button>
       {open && <div ref={pop} className="at-pop" role="group" aria-label={ariaLabel} onKeyDown={onKeyDown}>{children(close)}</div>}
