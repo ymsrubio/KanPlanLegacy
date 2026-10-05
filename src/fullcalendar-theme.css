@@ -270,3 +270,17 @@
   opacity: 0.7;
   text-decoration: line-through;
 }
+
+/* ── Day view: top-aligned hour labels, range badges, overlap prompt ── */
+.fc .fc-timegrid-slot-label { vertical-align: top; }
+.fc .fc-timegrid-slot-label-cushion { display: block; padding: var(--space-xxs) var(--space-sm) 0; }
+
+.kp-ev { display: flex; flex-direction: column; gap: var(--space-xxs); padding: var(--space-xxs) var(--space-xs); overflow: hidden; color: var(--color-ink); line-height: 1.2; }
+.kp-ev-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kp-ev-range { align-self: flex-start; padding: 0 var(--space-xs); border-radius: var(--radius-sm); background: var(--color-canvas); border: 1px solid var(--color-mute); font-size: 11px; font-weight: 600; white-space: nowrap; }
+
+.kp-overlap { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-mute); border-radius: var(--radius-md); background: var(--color-canvas); color: var(--color-ink); font-size: 14px; }
+.kp-overlap span { flex: 1 1 200px; }
+.kp-overlap button { min-height: var(--h-ctl); padding: 0 var(--space-md); border-radius: var(--radius-md); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.kp-overlap-use { border: none; background: var(--color-primary); color: var(--color-on-primary); }
+.kp-overlap-alt { border: 1px solid var(--color-mute); background: var(--color-canvas); color: var(--color-ink); }

@@ -57,3 +57,14 @@ export function formatRange(startIso, endIso) {
 }
 
 export const toIso = formatLocalIso;
+
+// Swap, don't block: when a block lands on another, suggest the next free slot of the same length.
+export function overlapSuggestion(blocks, id, startIso, endIso) {
+  const start = new Date(startIso);
+  const end = endIso ? new Date(endIso) : new Date(start.getTime() + DEFAULT_MIN * MIN);
+  const hit = findOverlap(blocks, id, start, end);
+  if (!hit) return null;
+  const minutes = (end - start) / MIN;
+  const slot = nextFreeSlot(blocks, start, minutes, id);
+  return { with: hit, start: toIso(slot), end: toIso(new Date(slot.getTime() + minutes * MIN)), label: `Use ${formatTime(slot)}` };
+}

@@ -1,9 +1,10 @@
 // src/components/CalendarGrid.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { blocksOf, overlapSuggestion, formatRange } from '../lib/schedule.js';
 import '../fullcalendar-theme.css';
 
 function getPriorityClass(task) {
@@ -16,6 +17,14 @@ function getPriorityClass(task) {
   return 'priority-low';
 }
 
+// Block content: title plus an explicit range badge, e.g. 09:00 AM - 10:00 AM
+const renderEvent = (arg) => (
+  <div className="kp-ev">
+    <span className="kp-ev-title">{arg.event.title}</span>
+    <span className="kp-ev-range">{formatRange(arg.event.start, arg.event.end)}</span>
+  </div>
+);
+
 export default function CalendarGrid({
   tasks,
   columns = [],
@@ -27,6 +36,8 @@ export default function CalendarGrid({
   onEditTask
 }) {
   const doneCol = columns.find((c) => c.name === 'Done');
+  // Open an hour before now so the now-line is on screen
+  const [scrollTime] = useState(() => `${String(Math.max(0, new Date().getHours() - 1)).padStart(2, '0')}:00:00`);
 
   // Filter tasks based on selected project
   const filteredTasks = useMemo(() => {
@@ -62,36 +73,33 @@ export default function CalendarGrid({
       });
   }, [filteredTasks, doneCol, projects]);
 
-  // On-calendar drag to reschedule
-  const handleEventDrop = (info) => {
-    if (!onScheduleChange) return;
-    const taskId = Number(info.event.extendedProps.taskId);
-    const startIso = formatLocalIso(info.event.start);
-    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
-    onScheduleChange(taskId, startIso, endIso);
+  // Overlap: offer the next free slot instead of blocking. `prompt` holds the pending choice.
+  const [prompt, setPrompt] = useState(null);
+  const apply = (kind, taskId, startIso, endIso) =>
+    kind === 'drop' ? onExternalDrop?.(taskId, startIso, endIso) : onScheduleChange?.(taskId, startIso, endIso);
+
+  const settle = (kind, taskId, startIso, endIso, revert) => {
+    const hit = overlapSuggestion(blocksOf(tasks, columns), taskId, startIso, endIso);
+    if (!hit) { setPrompt(null); apply(kind, taskId, startIso, endIso); return; }
+    revert();
+    const other = tasks.find((t) => Number(t.id) === Number(hit.with.id));
+    const mine = tasks.find((t) => Number(t.id) === Number(taskId));
+    setPrompt({ kind, taskId, hit, title: mine?.title, other: other?.title, requested: [startIso, endIso] });
   };
 
-  // On-calendar drag to resize duration
-  const handleEventResize = (info) => {
-    if (!onScheduleChange) return;
-    const taskId = Number(info.event.extendedProps.taskId);
-    const startIso = formatLocalIso(info.event.start);
-    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
-    onScheduleChange(taskId, startIso, endIso);
+  const fromInfo = (info) => {
+    const taskId = Number(info.event.extendedProps.taskId || info.event.id);
+    return [taskId, formatLocalIso(info.event.start), info.event.end ? formatLocalIso(info.event.end) : null];
   };
+
+  // On-calendar drag to reschedule, or resize to change duration
+  const handleEventChange = (info) => settle('move', ...fromInfo(info), info.revert);
 
   // External drop from Kanban board
   const handleEventReceive = (info) => {
-    if (!onExternalDrop) return;
-
-    // Parse data-event JSON from the dragged element
-    const rawData = info.event.extendedProps;
-    const taskId = rawData.taskId || Number(info.event.id);
-    const startIso = formatLocalIso(info.event.start);
-    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
-
+    const [taskId, startIso, endIso] = fromInfo(info);
     info.revert(); // the task event comes back from state once the drop is accepted
-    onExternalDrop(taskId, startIso, endIso);
+    settle('drop', taskId, startIso, endIso, () => {});
   };
 
   // Double-click and double-tap to inspect / edit event
@@ -213,6 +221,14 @@ export default function CalendarGrid({
           })}
         </div>
       )}
+      {prompt && (
+        <div className="kp-overlap" role="alert">
+          <span>"{prompt.title}" overlaps "{prompt.other}".</span>
+          <button type="button" className="kp-overlap-use" onClick={() => { apply(prompt.kind, prompt.taskId, prompt.hit.start, prompt.hit.end); setPrompt(null); }}>{prompt.hit.label}</button>
+          <button type="button" className="kp-overlap-alt" onClick={() => { apply(prompt.kind, prompt.taskId, ...prompt.requested); setPrompt(null); }}>Keep both</button>
+          <button type="button" className="kp-overlap-alt" aria-label="Dismiss" onClick={() => setPrompt(null)}>Cancel</button>
+        </div>
+      )}
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridDay"
@@ -230,7 +246,7 @@ export default function CalendarGrid({
         slotLabelInterval="01:00:00"
         slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
-        scrollTime="08:00:00"
+        scrollTime={scrollTime}
         snapDuration="00:05:00"
         allDaySlot={false}
         height="100%"
@@ -243,8 +259,9 @@ export default function CalendarGrid({
         eventStartEditable={true}
         dayMaxEvents={true}
         events={events}
-        eventDrop={handleEventDrop}
-        eventResize={handleEventResize}
+        eventDrop={handleEventChange}
+        eventResize={handleEventChange}
+        eventContent={renderEvent}
         eventReceive={handleEventReceive}
         eventDidMount={handleEventDidMount}
       />

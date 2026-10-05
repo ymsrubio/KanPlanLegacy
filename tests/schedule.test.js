@@ -49,3 +49,17 @@ test('schedule - time formats are zero padded with an explicit range', () => {
   assert.equal(formatRange(iso(9), iso(10)), '09:00 AM - 10:00 AM');
   assert.equal(formatRange(iso(0, 5), iso(13, 30)), '12:05 AM - 01:30 PM');
 });
+
+test('schedule - overlapSuggestion offers the next free slot of the same length', async () => {
+  const { overlapSuggestion } = await import('../src/lib/schedule.js');
+  const blocks = [block(1, 13, 14), block(2, 14, 15)];
+  // task 3 dropped at 1:30 PM for 1h collides with block 1; next free is 3:00 PM
+  const s = overlapSuggestion(blocks, 3, iso(13, 30), iso(14, 30));
+  assert.equal(s.with.id, 1);
+  assert.equal(s.start, iso(15));
+  assert.equal(s.end, iso(16));
+  assert.equal(s.label, 'Use 3:00 PM');
+  assert.equal(overlapSuggestion(blocks, 3, iso(15), iso(16)), null);
+  // moving a block over its own old slot is never an overlap with itself
+  assert.equal(overlapSuggestion(blocks, 1, iso(13, 30), iso(14, 30))?.with.id, 2);
+});
