@@ -35,7 +35,7 @@ export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pend
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ margin: 0, fontSize: '1.2em', fontWeight: '700', color: '#201515' }}>
-            🔄 Swap Task to Make Room
+            Swap a task
           </h2>
           <button
             onClick={onClose}
@@ -55,19 +55,18 @@ export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pend
         {/* Explanation */}
         <div
           style={{
-            background: '#fff1f2',
-            border: '1px solid #fecdd3',
-            borderRadius: '10px',
+            background: '#f8f4f0',
+            border: '1px solid #c5c0b1',
+            borderRadius: '12px',
             padding: '12px 16px',
             marginBottom: '20px',
-            fontSize: '0.85em',
-            color: '#991b1b'
+            fontSize: '0.9em',
+            color: '#36342e'
           }}
         >
-          <strong>⚠️ Ready to Start is at capacity!</strong>
+          <strong>Ready to start is full.</strong>
           <br />
-          Choose a task below to move back to Backlog, making room for{' '}
-          <strong>"{pendingTask.title}"</strong>.
+          Send one task back to Backlog to make room for <strong>"{pendingTask.title}"</strong>.
         </div>
 
         {/* Task list to swap */}
@@ -144,10 +143,10 @@ export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pend
                   fontSize: '0.75em',
                   fontWeight: '700',
                   color: '#ff4f00',
-                  background: '#fff1f2',
+                  background: '#f8f4f0',
                   padding: '3px 8px',
                   borderRadius: '6px',
-                  border: '1px solid #fecdd3',
+                  border: '1px solid #c5c0b1',
                   whiteSpace: 'nowrap'
                 }}
               >

@@ -90,6 +90,7 @@ export default function CalendarGrid({
     const startIso = formatLocalIso(info.event.start);
     const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
 
+    info.revert(); // the task event comes back from state once the drop is accepted
     onExternalDrop(taskId, startIso, endIso);
   };
 

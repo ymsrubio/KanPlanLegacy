@@ -13,6 +13,7 @@ import TaskEditDrawer from './components/TaskEditDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
 import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
+import { readyPlan, swapUpdates, applyUpdates } from './lib/wip-swap.js';
 
 export default function App() {
   // Auth state
@@ -275,6 +276,14 @@ export default function App() {
 
   // Task Edit Handler
   const handleSaveEdit = async (updatedTask) => {
+    const original = tasks.find((t) => t.id === updatedTask.id);
+    const plan = original && readyPlan(tasks, columns, original);
+    if (plan?.full && Number(updatedTask.column_id) === Number(plan.ready.id)) {
+      const { id, column_id, ...patch } = updatedTask;
+      setEditingTask(null);
+      setWipSwapState({ pendingTask: original, patch, readyTasks: plan.candidates });
+      return;
+    }
     setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
     setEditingTask(null);
     showCalendarAlert(`✏️ Task "${updatedTask.title}" updated!`);
@@ -311,91 +320,64 @@ export default function App() {
     }
   };
 
-  // Calendar: external drop from Kanban
-  const handleExternalDrop = (taskId, startIso, endIso) => {
-    const readyToStartCol = columns.find((c) => c.name === 'Ready to Start');
-    const readyTasks = readyToStartCol ? tasks.filter((t) => Number(t.column_id) === readyToStartCol.id) : [];
-    const task = tasks.find((t) => Number(t.id) === taskId);
-
-    if (!task) return;
-
-    // Check WIP limit
-    if (
-      readyToStartCol &&
-      readyToStartCol.wip_limit !== null &&
-      Number(task.column_id) !== readyToStartCol.id &&
-      readyTasks.length >= readyToStartCol.wip_limit
-    ) {
-      setWipSwapState({
-        pendingTask: task,
-        startIso,
-        endIso,
-        readyTasks,
-        readyToStartCol
+  // Optimistic ordered updates [{ id, patch }]. On failure, restore the UI and any updates the server already took.
+  const persistUpdates = async (updates) => {
+    const before = tasks;
+    setTasks((prev) => applyUpdates(prev, updates));
+    const saved = [];
+    try {
+      for (const u of updates) {
+        const res = await fetch(`/api/tasks/${u.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(u.patch)
+        });
+        if (!res.ok) throw new Error('PATCH failed');
+        saved.push(u);
+      }
+      return true;
+    } catch {
+      const originals = (u) => before.find((t) => Number(t.id) === Number(u.id));
+      setTasks((prev) => prev.map((t) => (updates.some((u) => Number(u.id) === Number(t.id)) ? originals({ id: t.id }) ?? t : t)));
+      saved.forEach((u) => {
+        const o = originals(u);
+        fetch(`/api/tasks/${u.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ column_id: o.column_id, schedule_start: o.schedule_start ?? null, schedule_end: o.schedule_end ?? null })
+        }).catch(() => {});
       });
+      showCalendarAlert('⚠️ Could not save that change. Nothing was moved.');
+      return false;
+    }
+  };
+
+  // Move a task into Ready to start; offer a swap instead of an error when it is full.
+  const requestReady = async (task, patch = {}) => {
+    const plan = readyPlan(tasks, columns, task);
+    if (!plan.ready) return;
+    if (plan.full) {
+      setWipSwapState({ pendingTask: task, patch, readyTasks: plan.candidates });
       return;
     }
-
-    completeExternalDrop(task, startIso, endIso, readyToStartCol);
+    const ok = await persistUpdates([{ id: task.id, patch: { column_id: plan.ready.id, ...patch } }]);
+    if (ok) showCalendarAlert(patch.schedule_start ? `✅ "${task.title}" scheduled & moved to Ready to start!` : `✅ "${task.title}" is ready to start.`);
   };
 
-  const completeExternalDrop = async (task, startIso, endIso, readyToStartCol) => {
-    const targetColId = readyToStartCol ? readyToStartCol.id : task.column_id;
-    setTasks((prev) =>
-      prev.map((t) =>
-        Number(t.id) === Number(task.id)
-          ? { ...t, column_id: targetColId, schedule_start: startIso, schedule_end: endIso }
-          : t
-      )
-    );
-
-    try {
-      await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          column_id: targetColId,
-          schedule_start: startIso,
-          schedule_end: endIso
-        })
-      });
-    } catch (err) {
-      console.log('Failed to persist calendar drop to server');
-    }
-
-    showCalendarAlert(`✅ "${task.title}" scheduled & moved to Ready to Start!`);
+  // Calendar: external drop from Kanban
+  const handleExternalDrop = (taskId, startIso, endIso) => {
+    const task = tasks.find((t) => Number(t.id) === Number(taskId));
+    if (task) requestReady(task, { schedule_start: startIso, schedule_end: endIso });
   };
 
-  // WIP swap: move selected task back to Backlog, then complete the pending drop
-  const handleWipSwap = async (swapTaskId) => {
+  // Swap: return the chosen task to Backlog, then move the pending one in.
+  const handleWipSwap = async (outId) => {
     if (!wipSwapState) return;
-
-    const backlogCol = columns.find((c) => c.name === 'Backlog');
-    const backlogId = backlogCol ? backlogCol.id : (columns[0] ? columns[0].id : 1);
-
-    setTasks((prev) =>
-      prev.map((t) =>
-        Number(t.id) === swapTaskId
-          ? { ...t, column_id: backlogId, schedule_start: null, schedule_end: null }
-          : t
-      )
-    );
-
-    try {
-      await fetch(`/api/tasks/${swapTaskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: backlogId, schedule_start: null, schedule_end: null })
-      });
-    } catch (err) {
-      console.log('Failed to persist swap to server');
-    }
-
-    const swappedTask = tasks.find((t) => Number(t.id) === swapTaskId);
-    showCalendarAlert(`↩️ "${swappedTask?.title}" moved back to Backlog.`);
-
-    await completeExternalDrop(wipSwapState.pendingTask, wipSwapState.startIso, wipSwapState.endIso, wipSwapState.readyToStartCol);
+    const { pendingTask, patch } = wipSwapState;
+    const out = tasks.find((t) => Number(t.id) === Number(outId));
+    const ok = await persistUpdates(swapUpdates(columns, pendingTask.id, outId, patch));
     setWipSwapState(null);
+    if (ok) showCalendarAlert(`↩️ "${out?.title}" went back to Backlog. "${pendingTask.title}" is ready to start.`);
   };
 
   const handleAddProject = async (projectData) => {
@@ -762,6 +744,7 @@ export default function App() {
               onSelectProject={setSelectedProjectId}
               onArchive={handleArchiveTask}
               onEditTask={setEditingTask}
+              onRequestReady={requestReady}
             />
           </div>
         )}

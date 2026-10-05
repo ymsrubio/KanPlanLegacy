@@ -66,7 +66,7 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
     const targetColId = Number(columnId);
     if (targetColId && targetColId !== Number(task.column_id)) {
       const targetCol = columns.find((c) => Number(c.id) === targetColId);
-      if (targetCol && targetCol.wip_limit !== null) {
+      if (targetCol && targetCol.name !== 'Ready to Start' && targetCol.wip_limit !== null) { // Ready to Start offers a swap instead
         const destCount = tasks.filter((t) => Number(t.column_id) === targetColId && !t.is_archived).length;
         if (destCount >= targetCol.wip_limit) {
           setErrorMsg(`Cannot move to "${targetCol.name}": WIP limit reached (${targetCol.wip_limit}/${targetCol.wip_limit}).`);

@@ -8,6 +8,7 @@ import AddTaskModal from './AddTaskModal.jsx';
 import ScheduleModal from './ScheduleModal.jsx';
 import TaskEditDrawer from './TaskEditDrawer.jsx';
 import { getNextColumn, getPrevColumn, canMoveToColumn } from '../lib/phase-movement.js';
+import { readyPlan } from '../lib/wip-swap.js';
 
 export default function KanbanBoard({
   tasks,
@@ -18,7 +19,8 @@ export default function KanbanBoard({
   selectedProjectId = null,
   onSelectProject,
   onArchive,
-  onEditTask
+  onEditTask,
+  onRequestReady
 }) {
   const [localColumns, setLocalColumns] = useState([
     { id: 1, name: 'Backlog', wip_limit: null },
@@ -88,6 +90,13 @@ export default function KanbanBoard({
     const destCol = columns.find((c) => Number(c.id) === destColId);
     const currentDestTasks = tasks.filter((t) => Number(t.column_id) === destColId);
 
+    // Full Ready to Start: offer a swap instead of an error
+    const dragged = tasks.find((t) => Number(t.id) === Number(draggableId));
+    if (onRequestReady && dragged && destCol?.name === 'Ready to Start' && readyPlan(tasks, columns, dragged).full) {
+      onRequestReady(dragged);
+      return;
+    }
+
     if (sourceColId !== destColId && destCol && destCol.wip_limit !== null) {
       if (currentDestTasks.length >= destCol.wip_limit) {
         showAlert(`⚠️ WIP Limit Reached! Cannot move task into "${destCol.name}" (Max: ${destCol.wip_limit}).`);
@@ -129,6 +138,12 @@ export default function KanbanBoard({
       : getPrevColumn(columns, task.column_id);
 
     if (!targetColumn) return;
+
+    // Full Ready to Start: offer a swap instead of an error
+    if (direction > 0 && onRequestReady && targetColumn.name === 'Ready to Start' && readyPlan(tasks, columns, task).full) {
+      onRequestReady(task);
+      return;
+    }
 
     // Check WIP limit
     if (direction > 0 && targetColumn.wip_limit !== null) {
