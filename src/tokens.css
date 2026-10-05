@@ -1,0 +1,30 @@
+/* v0.4 design tokens. Redesign components use these variables only. Values from DESIGN.md. */
+:root {
+  --color-primary: #ff4f00;
+  --color-on-primary: #fffefb;
+  --color-ink: #201515;
+  --color-ink-mid: #36342e;
+  --color-body: #605d52;
+  --color-mute: #c5c0b1;
+  --color-canvas: #fffefb;
+  --color-canvas-soft: #f8f4f0;
+
+  --space-xxs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-pill: 9999px;
+
+  /* control and row heights: 44px touch, 40px desktop */
+  --h-ctl: 44px;
+  --h-row: 44px;
+}
+@media (hover: hover) and (pointer: fine) {
+  :root { --h-ctl: 40px; --h-row: 40px; }
+}
