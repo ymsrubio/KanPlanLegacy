@@ -18,3 +18,15 @@ export function quadrantOf(task) {
 }
 
 export const scoreOf = (task) => PRIORITY_SCORE[quadrantOf(task)];
+
+// Picker and matrix share this order: Urgent increases to the right.
+export const QUADRANT_ORDER = ['plan', 'doFirst', 'later', 'quick'];
+export const QUADRANT_LABEL = { plan: 'Plan', doFirst: 'Do first', later: 'Later', quick: 'Quick' };
+export const QUADRANT_HINT = { plan: 'Important, not urgent', doFirst: 'Urgent, important', later: 'Neither', quick: 'Urgent, not important' };
+// Legacy 1-5 levels that map back to each quadrant (>= 4 is high).
+export const QUADRANT_LEVELS = {
+  doFirst: { urgency_level: 5, importance_level: 5 },
+  plan: { urgency_level: 2, importance_level: 5 },
+  quick: { urgency_level: 5, importance_level: 2 },
+  later: { urgency_level: 2, importance_level: 2 }
+};

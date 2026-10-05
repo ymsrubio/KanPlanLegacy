@@ -8,6 +8,7 @@ import ProjectSelector from './components/ProjectSelector.jsx';
 import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import ArchiveDrawer from './components/ArchiveDrawer.jsx';
 import DayList from './components/DayList.jsx';
+import AddTask from './components/AddTask.jsx';
 import TaskEditDrawer from './components/TaskEditDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
@@ -223,6 +224,24 @@ export default function App() {
     }
   };
 
+  const handleAddTask = async (payload) => {
+    const temp = { id: `tmp-${Date.now()}`, ...payload };
+    setTasks((prev) => [...prev, temp]);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('POST failed');
+      const saved = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === temp.id ? saved : t)));
+    } catch {
+      setTasks((prev) => prev.filter((t) => t.id !== temp.id));
+      showCalendarAlert('⚠️ Failed to add task');
+    }
+  };
+
   const handleCompleteTask = async (task) => {
     const done = columns.find((c) => c.name === 'Done');
     if (!done) return;
@@ -390,6 +409,7 @@ export default function App() {
         const newProject = await res.json();
         setProjects((prev) => [...prev, newProject]);
         showCalendarAlert(`✅ Project "${newProject.name}" created!`);
+        return newProject;
       } else {
         const err = await res.json();
         throw new Error(err.error || 'Failed to create project');
@@ -703,7 +723,15 @@ export default function App() {
       {/* Main Workspace */}
       <main style={{ flex: 1, minHeight: 0, display: 'flex', gap: '20px', alignItems: 'stretch', overflow: 'hidden' }}>
         {layoutMode === 'list' && (
-          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '640px' }}>
+          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <AddTask
+              tasks={tasks}
+              columns={columns}
+              projects={projects}
+              defaultProjectId={selectedProjectId}
+              onAdd={handleAddTask}
+              onCreateProject={(name, color) => handleAddProject({ name, color })}
+            />
             <DayList
               tasks={tasks}
               columns={columns}

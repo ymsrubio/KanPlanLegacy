@@ -379,6 +379,9 @@ app.post('/projects', async (c) => {
   const trimmedName = name.trim();
   const trimmedColor = color?.trim() || '#ff4f00';
 
+  const taken = await db.prepare('SELECT id FROM projects WHERE account_id = ? AND LOWER(name) = LOWER(?)').bind(accountId, trimmedName).first();
+  if (taken) return c.json({ error: 'That name is taken' }, 409);
+
   const { meta } = await db.prepare('INSERT INTO projects (account_id, name, color) VALUES (?, ?, ?)')
     .bind(accountId, trimmedName, trimmedColor)
     .run();
