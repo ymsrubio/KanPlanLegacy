@@ -9,6 +9,7 @@ import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import ArchiveDrawer from './components/ArchiveDrawer.jsx';
 import DayList from './components/DayList.jsx';
 import AddTask from './components/AddTask.jsx';
+import MatrixView from './components/MatrixView.jsx';
 import TaskEditDrawer from './components/TaskEditDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
@@ -586,6 +587,22 @@ export default function App() {
               ☰ Day List
             </button>
             <button
+              onClick={() => setLayoutMode('matrix')}
+              style={{
+                border: 'none',
+                background: layoutMode === 'matrix' ? '#ff4f00' : 'transparent',
+                color: layoutMode === 'matrix' ? '#fffefb' : '#201515',
+                fontWeight: '600',
+                padding: '6px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '0.85em',
+                transition: 'background 0.2s'
+              }}
+            >
+              ▦ Matrix
+            </button>
+            <button
               onClick={() => setLayoutMode('split')}
               style={{
                 border: 'none',
@@ -721,6 +738,19 @@ export default function App() {
               selectedProjectId={selectedProjectId}
               onEditTask={setEditingTask}
               onComplete={handleCompleteTask}
+            />
+          </div>
+        )}
+
+        {layoutMode === 'matrix' && (
+          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '760px' }}>
+            <MatrixView
+              tasks={tasks}
+              columns={columns}
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onReady={requestReady}
+              onEditTask={setEditingTask}
             />
           </div>
         )}
