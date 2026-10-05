@@ -47,13 +47,9 @@ async function findOrCreateAccountD1(db, profile) {
 
   // Seed default projects
   for (const proj of DEFAULT_PROJECTS) {
-    try {
-      await db.prepare(
-        'INSERT INTO projects (account_id, name, color) VALUES (?, ?, ?)'
-      ).bind(id, proj.name, proj.color).run();
-    } catch {
-      // Ignore if exists
-    }
+    await db.prepare(
+      'INSERT INTO projects (account_id, name, color) VALUES (?, ?, ?)'
+    ).bind(id, proj.name, proj.color).run();
   }
 
   return await db.prepare('SELECT * FROM accounts WHERE id = ?').bind(id).first();
@@ -87,6 +83,17 @@ async function resolveSessionD1(db, token) {
 
 async function deleteSessionD1(db, token) {
   await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+}
+
+function setSessionCookie(c, token) {
+  setCookie(c, 'kanplan_session', token, {
+    path: '/',
+    httpOnly: true,
+    // secure only on HTTPS so localhost HTTP can persist cookies
+    secure: c.req.url.startsWith('https://'),
+    sameSite: 'Lax',
+    maxAge: SESSION_DURATION_MS / 1000
+  });
 }
 
 let schemaInitialized = false;
@@ -288,15 +295,7 @@ app.get('/auth/google/callback', async (c) => {
   // Create session
   const session = await createSessionD1(db, account.id);
 
-  // Set HTTP-only cookie (secure only on HTTPS so localhost HTTP can persist cookies)
-  const isSecure = c.req.url.startsWith('https://');
-  setCookie(c, 'kanplan_session', session.token, {
-    path: '/',
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: 'Lax',
-    maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
-  });
+  setSessionCookie(c, session.token);
 
   // Don't use the referer here — after the OAuth round-trip it points at accounts.google.com,
   // which bounces signed-in users to myaccount.google.com instead of back to the app.
@@ -317,15 +316,7 @@ app.get('/auth/dev-login', async (c) => {
   });
 
   const session = await createSessionD1(db, account.id);
-  const isSecure = c.req.url.startsWith('https://');
-
-  setCookie(c, 'kanplan_session', session.token, {
-    path: '/',
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: 'Lax',
-    maxAge: 7 * 24 * 60 * 60
-  });
+  setSessionCookie(c, session.token);
 
   return c.redirect(targetUrl);
 });
@@ -363,21 +354,6 @@ app.get('/columns', async (c) => {
   const accountId = c.get('accountId');
   const { results } = await db.prepare('SELECT * FROM columns WHERE account_id = ? ORDER BY position ASC').bind(accountId).all();
   return c.json(results);
-});
-
-app.post('/columns', async (c) => {
-  const db = c.env.DB;
-  const accountId = c.get('accountId');
-  const { name, wip_limit = null } = await c.req.json();
-
-  const maxRow = await db.prepare('SELECT MAX(position) AS maxPos FROM columns WHERE account_id = ?').bind(accountId).first();
-  const position = (maxRow && maxRow.maxPos !== null) ? maxRow.maxPos + 1 : 0;
-
-  const { meta } = await db.prepare('INSERT INTO columns (account_id, name, position, wip_limit) VALUES (?, ?, ?, ?)')
-    .bind(accountId, name, position, wip_limit)
-    .run();
-
-  return c.json({ id: meta.last_row_id, account_id: accountId, name, position, wip_limit }, 201);
 });
 
 // ============================================================
