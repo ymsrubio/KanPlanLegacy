@@ -7,6 +7,7 @@ import UserMenu from './components/UserMenu.jsx';
 import ProjectSelector from './components/ProjectSelector.jsx';
 import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import ArchiveDrawer from './components/ArchiveDrawer.jsx';
+import DayList from './components/DayList.jsx';
 import TaskEditDrawer from './components/TaskEditDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
@@ -219,6 +220,24 @@ export default function App() {
       await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
     } catch (err) {
       showCalendarAlert('⚠️ Failed to delete archived task');
+    }
+  };
+
+  const handleCompleteTask = async (task) => {
+    const done = columns.find((c) => c.name === 'Done');
+    if (!done) return;
+    const completed_at = new Date().toISOString();
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, column_id: done.id, completed_at } : t)));
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ column_id: done.id, completed_at })
+      });
+      if (!res.ok) throw new Error('PATCH failed');
+    } catch {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+      showCalendarAlert('⚠️ Failed to complete task');
     }
   };
 
@@ -549,6 +568,22 @@ export default function App() {
           {/* View Mode Toggle */}
           <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '4px', borderRadius: '12px', border: '1px solid #c5c0b1' }}>
             <button
+              onClick={() => setLayoutMode('list')}
+              style={{
+                border: 'none',
+                background: layoutMode === 'list' ? '#ff4f00' : 'transparent',
+                color: layoutMode === 'list' ? '#fffefb' : '#201515',
+                fontWeight: '600',
+                padding: '6px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '0.85em',
+                transition: 'background 0.2s'
+              }}
+            >
+              ☰ Day List
+            </button>
+            <button
               onClick={() => setLayoutMode('split')}
               style={{
                 border: 'none',
@@ -667,6 +702,19 @@ export default function App() {
 
       {/* Main Workspace */}
       <main style={{ flex: 1, minHeight: 0, display: 'flex', gap: '20px', alignItems: 'stretch', overflow: 'hidden' }}>
+        {layoutMode === 'list' && (
+          <div style={{ flex: 1, height: '100%', overflowY: 'auto', maxWidth: '640px' }}>
+            <DayList
+              tasks={tasks}
+              columns={columns}
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onEditTask={setEditingTask}
+              onComplete={handleCompleteTask}
+            />
+          </div>
+        )}
+
         {(layoutMode === 'split' || layoutMode === 'kanban') && (
           <div
             style={{

@@ -1,0 +1,18 @@
+/* Day list: tokens only (see tokens.css). */
+.dl { display: flex; flex-direction: column; gap: var(--space-xl); font-family: Inter, system-ui, sans-serif; color: var(--color-ink); }
+.dl-head { display: flex; align-items: center; gap: var(--space-sm); margin: 0 0 var(--space-xs); font-size: 14px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+.dl-count { color: var(--color-body); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.dl-pips { display: inline-flex; gap: var(--space-xs); }
+.dl-pip { width: var(--space-sm); height: var(--space-sm); border-radius: var(--radius-pill); border: 1px solid var(--color-ink); }
+.dl-pip[data-on] { background: var(--color-ink); }
+.dl-full { padding: 0 var(--space-sm); border-radius: var(--radius-pill); background: var(--color-canvas-soft); border: 1px solid var(--color-mute); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.dl-row { display: flex; align-items: center; gap: var(--space-md); min-height: var(--h-row); padding: 0 var(--space-md); border-bottom: 1px solid var(--color-mute); background: var(--color-canvas); cursor: pointer; }
+.dl-row:hover { background: var(--color-canvas-soft); }
+.dl-check { width: 20px; height: 20px; flex: none; accent-color: var(--color-primary); cursor: pointer; }
+.dl-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-mark { font-size: 12px; font-weight: 700; color: var(--color-ink); }
+.dl-chip { display: inline-flex; align-items: center; gap: var(--space-xs); padding: var(--space-xxs) var(--space-sm); border-radius: var(--radius-pill); background: var(--color-canvas-soft); font-size: 12px; color: var(--color-ink-mid); }
+.dl-dot { width: var(--space-sm); height: var(--space-sm); border-radius: var(--radius-pill); }
+.dl-next { padding: var(--space-xxs) var(--space-sm); border-radius: var(--radius-pill); background: var(--color-primary); color: var(--color-on-primary); font-size: 12px; font-weight: 600; }
+.dl-empty { padding: var(--space-lg) var(--space-md); border-radius: var(--radius-md); background: var(--color-canvas-soft); color: var(--color-body); font-size: 14px; }
+.dl-empty b { display: block; color: var(--color-ink); }
