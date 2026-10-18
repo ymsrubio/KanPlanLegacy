@@ -1,8 +1,17 @@
 /* Matrix view, from the design canvas (artboard 20). Tokens only. */
-.mxw { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mxw { height: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mf { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 0 0 var(--space-3); }
+.mf .seg { flex: none; width: 220px; background: var(--track); border: 0; }
+.mf .seg button[aria-selected=true] { border-color: var(--control); }
+.room { display: flex; align-items: center; gap: var(--space-2); font-size: var(--t-12); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.room .pips { margin-left: 0; }
+.room.full { color: var(--warn-strong); font-weight: 600; }
+.room.full .pip.on { background: var(--warn-strong); border-color: var(--warn-strong); }
+.stg { flex: none; font-size: var(--t-12); color: var(--text-2); white-space: nowrap; }
 .axis { font-size: var(--t-12); color: var(--text-2); padding: 0 0 var(--space-2); display: flex; justify-content: space-between; }
 .mx { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: var(--space-3); }
 .q { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.q .link { flex: none; }
 .q .qh { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-3) var(--space-3) var(--space-1); }
 .q .qh b { font-size: var(--t-15); font-weight: 600; }
 .q .qh span { font-size: var(--t-12); color: var(--text-2); }
@@ -13,4 +22,9 @@
 @media (hover: hover) { .mv:hover { background: var(--page); border-color: var(--text); } }
 .mv:active { background: var(--press); }
 .mv:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-@media (max-width: 640px) { .mx { grid-template-columns: 1fr; grid-template-rows: none; } .axis { display: none; } }
+@media (max-width: 640px) {
+  .mx { display: block; flex: none; }
+  .mxc { padding: var(--space-2); }
+  .mxc > section + section { margin-top: var(--space-2); }
+  .mf .seg { width: 200px; }
+}
