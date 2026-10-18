@@ -1,34 +1,55 @@
-/* v0.4 design tokens. Redesign components use these variables only. Values from DESIGN.md. */
+/* KanPlan design system tokens (claude.ai artifact WKrLGuMynS2pCXtK2zweCT). Components use these variables only. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600&family=Inter:wght@400;500;600&display=swap');
+
 :root {
-  --color-primary: #ff4f00;
-  --color-on-primary: #fffefb;
-  --color-ink: #201515;
-  --color-ink-mid: #36342e;
-  --color-body: #605d52;
-  --color-mute: #c5c0b1;
-  --color-canvas: #fffefb;
-  --color-canvas-soft: #f8f4f0;
+  --page: #faf3e3;
+  --surface: #fffdf8;
+  --selected: #faedcd;
+  --press: #f2e7cf;
+  --track: #e6dabd;
+  --rule: #e8dfcb;
+  --control: #8f8775;
+  --text: #201515;
+  --text-2: #5f5a4d;
+  --text-3: #736d5f;
+  --focus: #201515;
+  --primary: #201515;
+  --primary-hover: #3a2c2c;
+  --primary-press: #130c0c;
+  --primary-ink: #fffdf8;
 
-  --space-xxs: 2px;
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
-  --space-2xl: 32px;
+  --proj-1: #99bab9; --proj-1-wash: #dbe8e7; --proj-1-ink: #2c5655;
+  --proj-2: #ccd5ae; --proj-2-wash: #e6ebd3; --proj-2-ink: #4a5a1f;
+  --proj-3: #e4acb2; --proj-3-wash: #f4dadd; --proj-3-ink: #8f3447;
+  --proj-4: #c5bde0; --proj-4-wash: #e9e5ef; --proj-4-ink: #554c63;
+  --proj-5: #a9c3e0; --proj-5-wash: #dee7ef; --proj-5-ink: #3f5063;
 
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-pill: 9999px;
+  --warn: #eabca8;
+  --warn-ink: #201515;
+  --warn-strong: #8a4a2b;
+  --error: #a12d3a;
+  --scrim: rgba(32, 21, 21, .45);
+  --shadow: 0 1px 2px rgba(32, 21, 21, .04);
+  --shadow-pop: 0 4px 16px rgba(32, 21, 21, .12);
 
-  /* control and row heights: 44px touch, 40px desktop */
-  --h-ctl: 44px;
-  --h-row: 44px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+  --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 999px;
+
+  --t-12: 12px; --t-14: 14px; --t-15: 15px; --t-18: 18px; --t-24: 24px; --t-32: 32px;
+
+  --h-row: 40px; --h-ctl: 40px; --h-ctl-sm: 32px; --h-group: 44px; --h-chip: 24px; --h-tag: 20px;
+  --cal-hour: 56px;
+
+  --font-display: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
-@media (hover: hover) and (pointer: fine) and (min-width: 641px) {
-  :root { --h-ctl: 40px; --h-row: 40px; }
+@media (pointer: coarse), (max-width: 640px) {
+  :root { --h-row: 44px; --h-ctl: 44px; --h-ctl-sm: 44px; }
 }
 
-/* Full-height app shell that respects mobile browser chrome */
 html, body { margin: 0; }
+body { font-family: var(--font-body); color: var(--text); background: var(--page); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
 .app-root { width: 100%; height: 100vh; height: 100dvh; }
