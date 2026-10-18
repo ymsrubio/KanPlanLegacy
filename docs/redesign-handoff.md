@@ -44,18 +44,23 @@ Unit 0 goes first because every other unit verifies with it. Units 1 to 7 share 
 
 ## Status as of 2026-10-18
 
-Merged into `redesign/workspace-shell`: unit 0 (verify skill), unit 1 (PR 85, Add task dialog), unit 2 (PR 86, WIP swap), unit 6 (PR 87, Matrix filter). Each review round fixed its findings before merge.
+All units are merged into `redesign/workspace-shell`, each after an independent review whose findings were fixed before merge:
 
-Not started: unit 3 (Projects), unit 4 (Edit and archive drawers), unit 5 (Login), unit 7 (WIP limits in the More menu). Start each in its own session cut from `redesign/workspace-shell`, with the brief in the Units table above.
+- Unit 0 (verify skill), unit 1 (PR 85, Add task dialog), unit 2 (PR 86, WIP swap), unit 6 (PR 87, Matrix filter).
+- CI (PR 90): `.github/workflows/ci.yml` runs `npm ci`, `npm test` and `npm run build` on pull requests and on push to `main`. It was proved to go red on a broken assertion.
+- Unit 3 (PR 91, Projects), unit 5 (PR 92, Login), unit 4 (PR 93, Edit and archive drawers, now closing on Escape).
+- Unit 7 (PR 94): the WIP limits dialog in the More menu, saved through the new `PATCH /api/columns/:id`. The Add task dialog's "Swap a task" now opens the swap modal.
+
+PR 88 is closed. After the merges, `npm test` passes 102 of 103 with 1 skipped, and `npm run build` passes.
 
 ## Backlog before `redesign/workspace-shell` goes to `main`
 
-- Units 3, 4, 5 and 7, in any order. Unit 7 is the only one that edits `src/App.jsx`.
-- Wire the Add task dialog's "Swap a task" button to the swap modal. The modal state lives in `src/App.jsx` (`wipSwapState`, `handleWipSwap`), so do it inside unit 7. Until then the button runs the dialog's add handler.
-- Close PR 88 (verify skill against `main`). It is redundant now that its commit is in `redesign/workspace-shell`. Then open one PR from `redesign/workspace-shell` into `main`.
-- The in-list "Ready to start is full" banner with its "Swap a task" button (artboard 8) is not built. It belongs to the shell, not to any unit.
-- Add CI. The repo has no test workflow, only the Cloudflare Pages deploy check. Add `.github/workflows/ci.yml` running `npm ci`, `npm test` and `npm run build` on pull requests and prove it can fail.
+- The in-list "Ready to start is full" banner with its "Swap a task" button (artboard 8) is not built. It belongs to the shell and edits `src/App.jsx`.
+- Move the drawer styles (`drw-*`, `ed-*`, `ar-*`) from inline `<style>` blocks in `TaskEditDrawer.jsx` and `ArchiveDrawer.jsx` into `src/workspace.css`.
+- Not yet tried in the running app: Escape closing the drawers, and the WIP limits dialog when only some columns save.
+- Mark the `test-and-build` check as required in branch protection. Until then a red check does not block a merge.
 - Matrix: the desktop "Show N more" collapse from artboard 20 is unverified because the seed data is small.
+- Then open one PR from `redesign/workspace-shell` into `main`.
 
 ## Known gaps carried over
 
