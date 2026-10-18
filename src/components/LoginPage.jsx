@@ -24,7 +24,8 @@ const card = {
   padding: 'var(--space-8)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-6)'
+  gap: 'var(--space-6)',
+  textAlign: 'center'
 };
 
 const fullWidth = { width: '100%', boxSizing: 'border-box', textDecoration: 'none' };
@@ -42,7 +43,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="empty" style={{ padding: 0 }}>
+        <div className="empty" style={{ padding: 0, alignItems: 'center' }}>
           <h2>Welcome back</h2>
           <p>Sign in to open your board.</p>
         </div>
