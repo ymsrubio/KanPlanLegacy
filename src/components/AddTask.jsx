@@ -1,6 +1,6 @@
 // src/components/AddTask.jsx
 // Title plus three chips (Project, Priority, When). Options live only in popovers.
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Chip from './Chip.jsx';
 import Icon from './Icon.jsx';
 import { projectColor, projectSlot, priorityMark } from '../lib/day-list.js';
@@ -42,13 +42,15 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
   const [title, setTitle] = useState('');
   const [c, setC] = useState(fresh);
   const [startText, setStartText] = useState(null); // null: next free slot
+  const [date, setDate] = useState(null); // 'YYYY-MM-DD' from the date picker, else Today/Tomorrow
+  const picker = useRef(null);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
   const [more, setMore] = useState(false);
   const set = (patch) => setC((prev) => ({ ...prev, ...patch }));
 
   const ctx = { tasks, columns };
-  const auto = slotStart(c.day, c.minutes, ctx);
+  const auto = date && c.day !== 'none' ? nextFreeSlot(blocksOf(tasks, columns), new Date(`${date}T09:00:00`), c.minutes) : slotStart(c.day, c.minutes, ctx);
   const clock = startText == null ? null : parseClock(startText);
   let start = auto;
   if (auto && clock != null) {
@@ -73,10 +75,11 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
       payload.schedule_start = toIso(start);
       payload.schedule_end = toIso(end);
     }
-    if (swap && onSwap) onSwap(payload); else onAdd(payload);
+    if (swap && onSwap) onSwap(payload); else onAdd(payload); // without onSwap, a full Ready still adds as before
     setTitle('');
     setC(fresh());
     setStartText(null);
+    setDate(null);
     setMore(false);
     onDone?.();
   };
@@ -96,8 +99,9 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
     }
   };
 
+  const dayName = date ? start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : c.day === 'tomorrow' ? 'Tomorrow' : 'Today';
   const mark = priorityMark(scoreOf(QUADRANT_LEVELS[c.quadrant]))?.level;
-  const canSwap = full && Boolean(onSwap);
+  const canSwap = full;
   const label = !title.trim() || start ? 'Schedule task' : 'Add to Backlog';
 
   return (
@@ -162,14 +166,18 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
           ariaLabel="When"
           width={360}
           tone={hit ? 'warn' : start ? undefined : 'unset'}
-          label={<>{hit ? <AlertIcon /> : <CalendarIcon />}{start ? `${c.day === 'tomorrow' ? 'Tomorrow' : 'Today'} · ${formatTime(start)} · ${lengthLabel(c.minutes)}` : 'No time'}</>}
+          label={<>{hit ? <AlertIcon /> : <CalendarIcon />}{start ? `${dayName} · ${formatTime(start)} · ${lengthLabel(c.minutes)}` : 'No time'}</>}
         >
           {(close) => (
             <div className="at-when">
               {c.day !== 'none' ? (
                 <>
-                  <div className="at-pills" role="radiogroup" aria-label="Day">
-                    {DAYS.map(([k, name]) => <Opt key={k} className="at-pill" on={c.day === k} onClick={() => { setStartText(null); set({ day: k }); }}>{name}</Opt>)}
+                  <div className="at-top">
+                    <div className="at-pills" role="radiogroup" aria-label="Day" style={{ flex: 1 }}>
+                      {DAYS.map(([k, name]) => <Opt key={k} className="at-pill" on={!date && c.day === k} onClick={() => { setStartText(null); setDate(null); set({ day: k }); }}>{name}</Opt>)}
+                    </div>
+                    <button type="button" data-opt="" className="at-ibtn" aria-label="Pick a date" onClick={() => picker.current?.showPicker?.()}><CalendarIcon /></button>
+                    <input ref={picker} className="at-date" type="date" tabIndex={-1} aria-label="Date" value={date ?? ''} onChange={(e) => { setStartText(null); setDate(e.target.value || null); }} />
                   </div>
                   <div className="at-time">
                     <input
@@ -225,7 +233,7 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
         <div className="at-banner" role="status">
           <span className="tile"><AlertIcon /></span>
           <p>Ready to start is full. Swap a task to make room.</p>
-          {canSwap && <button type="button" className="btn secondary" onClick={() => submit(true)}>Swap a task</button>}
+          <button type="button" className="btn secondary" onClick={() => submit(true)}>Swap a task</button>
         </div>
       )}
 

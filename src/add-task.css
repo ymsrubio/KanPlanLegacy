@@ -5,7 +5,7 @@
 .at { display: flex; flex-direction: column; gap: var(--space-4); font-family: var(--font-body); color: var(--text); }
 .at-title { box-sizing: border-box; width: 100%; border: 0; border-bottom: 1px solid var(--rule); background: none; font: inherit; font-size: var(--t-18); font-weight: 500; padding: var(--space-2) 0 var(--space-3); color: var(--text); }
 .at-title::placeholder { color: var(--text-3); font-weight: 400; }
-.at-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: var(--r-sm); }
+.at-title:focus-visible { outline: none; border-bottom-color: var(--text); }
 
 .at-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .at-wrap { position: relative; }
@@ -41,6 +41,8 @@
 .at-pt:active { background: var(--press); }
 
 .at-when { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); }
+.at-top { position: relative; }
+.at-date { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .at-top, .at-time, .at-when-foot { display: flex; gap: var(--space-2); }
 .at-when-foot { justify-content: space-between; align-items: center; }
 .at-pills { display: flex; gap: var(--space-1); }
@@ -58,6 +60,10 @@
 .at-banner .tile { background: var(--warn); border-color: var(--warn-strong); }
 
 .at-foot { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-1); }
+
+/* BottomSheet (not ours) titles itself "Add task"; the phone artboard says "New task". */
+.bs:has(.at) .bs-title { font-size: 0; }
+.bs:has(.at) .bs-title::after { content: "New task"; font-size: var(--t-18); font-weight: 600; letter-spacing: -.01em; }
 
 /* Phone: the open popover drops below the chip row, full width, instead of floating. */
 @media (max-width: 640px) {
