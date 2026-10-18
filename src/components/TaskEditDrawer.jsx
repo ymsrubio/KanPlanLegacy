@@ -1,8 +1,31 @@
 // src/components/TaskEditDrawer.jsx
-// Right-side slide-over drawer for editing task details, priority levels, due dates, and schedule time blocks.
+// Right-side drawer for editing task details, priority, due date and schedule block.
+// Not drawn in the design: built from the Components artboard (3) fields and buttons plus workspace.css.
 
 import React, { useState, useEffect } from 'react';
 import { getTodayDateString, getCurrentRoundedTime, generate5MinTimeOptions } from '../lib/time-utils.js';
+import { formatRange } from '../lib/schedule.js';
+import { QUADRANT_ORDER, QUADRANT_LABEL, QUADRANT_HINT, QUADRANT_LEVELS, quadrantOf, scoreOf } from '../lib/priority.js';
+
+// Shared by the edit and archive drawers.
+export const drawerCss = `
+.drw-scrim { position: fixed; inset: 0; z-index: 1000; background: var(--scrim); display: flex; justify-content: flex-end; }
+.drw { width: 100%; max-width: 440px; height: 100%; box-sizing: border-box; background: var(--surface); border-left: 1px solid var(--rule); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; color: var(--text); }
+.drw-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--rule); }
+.drw-head h2 { font-size: var(--t-18); font-weight: 600; letter-spacing: -.01em; display: flex; align-items: center; gap: var(--space-2); }
+.drw-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+.drw-foot { flex: none; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4) var(--space-6) var(--space-6); border-top: 1px solid var(--rule); }
+.drw-field { height: var(--h-ctl); box-sizing: border-box; width: 100%; border: 1px solid var(--control); border-radius: var(--r-md); padding: 0 var(--space-3); font: inherit; font-size: var(--t-15); color: var(--text); background: var(--surface); outline: 2px solid transparent; outline-offset: 1px; }
+.drw-field::placeholder { color: var(--text-3); opacity: 1; }
+@media (hover: hover) { .drw-field:hover { background: var(--page); } }
+.drw-field:focus-visible { outline-color: var(--focus); border-color: var(--text); }
+.drw-field[aria-invalid="true"] { border-color: var(--error); }
+textarea.drw-field { height: auto; padding: var(--space-3); line-height: 1.45; resize: vertical; }
+.drw-label { font-size: var(--t-14); font-weight: 600; }
+.drw-group { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.drw-help { font-size: var(--t-12); color: var(--text-3); line-height: 1.4; display: flex; align-items: center; gap: var(--space-1); }
+.drw-help.err { color: var(--error); }
+`;
 
 export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects = [], columns = [], tasks = [], onArchive }) {
   const [title, setTitle] = useState('');
@@ -54,9 +77,16 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
     }
   }, [task]);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !task) return null;
 
-  const priorityScore = urgencyLevel * importanceLevel;
+  const priorityScore = scoreOf({ urgency_level: urgencyLevel, importance_level: importanceLevel });
   const timeOptions = generate5MinTimeOptions();
 
   const handleSubmit = (e) => {
@@ -110,443 +140,152 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
     });
   };
 
+  const quadrant = quadrantOf({ urgency_level: urgencyLevel, importance_level: importanceLevel });
+  const pickQuadrant = (q) => {
+    if (q === quadrant) return;
+    setUrgencyLevel(QUADRANT_LEVELS[q].urgency_level);
+    setImportanceLevel(QUADRANT_LEVELS[q].importance_level);
+  };
+
+  const range = isScheduled && scheduleDate && startTime
+    ? formatRange(`${scheduleDate}T${startTime}:00`, new Date(new Date(`${scheduleDate}T${startTime}:00`).getTime() + Number(durationMinutes) * 60000))
+    : null;
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 10000,
-        background: 'rgba(32, 21, 21, 0.4)',
-        backdropFilter: 'blur(3px)',
-        display: 'flex',
-        justifyContent: 'flex-end',
-        transition: 'opacity 0.2s ease'
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: '#fffefb',
-          width: '100%',
-          maxWidth: '440px',
-          height: '100%',
-          borderLeft: '2px solid #201515',
-          padding: '28px 24px',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '-10px 0 30px rgba(32, 21, 21, 0.2)',
-          color: '#201515'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #c5c0b1', paddingBottom: '16px' }}>
-          <div>
-            <span style={{ fontSize: '0.75em', fontWeight: '800', color: '#ff4f00', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Task Inspector
-            </span>
-            <h2 style={{ margin: '2px 0 0 0', fontSize: '1.25em', fontWeight: '800', color: '#201515' }}>
-              ✏️ Edit Task
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.2em',
-              color: '#939084',
-              cursor: 'pointer',
-              padding: '4px'
-            }}
-          >
-            ✕
+    <div className="drw-scrim" onClick={onClose}>
+      <style>{drawerCss + editCss}</style>
+      <form className="drw" role="dialog" aria-modal="true" aria-labelledby="ed-title" onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
+        <div className="drw-head">
+          <h2 id="ed-title">Edit task</h2>
+          <button type="button" className="btn quiet icon" aria-label="Close" onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', paddingRight: '4px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
-              Task Title
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid #c5c0b1',
-                outline: 'none',
-                fontSize: '0.95em',
-                fontWeight: '600',
-                background: '#fffefb',
-                color: '#201515',
-                boxSizing: 'border-box'
-              }}
-            />
+        <div className="drw-body">
+          <div className="drw-group">
+            <label className="drw-label" htmlFor="ed-name">Title</label>
+            <input id="ed-name" className="drw-field" type="text" required value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
-          {/* Column / Stage Selector */}
           {columns.length > 0 && (
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
-                📊 Column / Kanban Stage
-              </label>
+            <div className="drw-group">
+              <label className="drw-label" htmlFor="ed-col">Stage</label>
               <select
+                id="ed-col"
+                className="drw-field"
                 value={columnId}
-                onChange={(e) => {
-                  setColumnId(e.target.value);
-                  setErrorMsg(null);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  border: errorMsg ? '1px solid #dc2626' : '1px solid #c5c0b1',
-                  background: '#fffefb',
-                  color: '#201515',
-                  fontSize: '0.95em',
-                  fontWeight: '600',
-                  boxSizing: 'border-box'
-                }}
+                aria-invalid={errorMsg ? 'true' : undefined}
+                onChange={(e) => { setColumnId(e.target.value); setErrorMsg(null); }}
               >
                 {columns.map((c) => {
-                  const colTasksCount = tasks.filter((t) => Number(t.column_id) === Number(c.id) && !t.is_archived).length;
-                  const wipLabel = c.wip_limit !== null ? ` (WIP: ${colTasksCount}/${c.wip_limit})` : '';
-                  return (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {wipLabel}
-                    </option>
-                  );
+                  const count = tasks.filter((t) => Number(t.column_id) === Number(c.id) && !t.is_archived).length;
+                  return <option key={c.id} value={c.id}>{c.wip_limit !== null ? `${c.name} (${count}/${c.wip_limit})` : c.name}</option>;
                 })}
               </select>
-              {errorMsg && (
-                <div style={{ color: '#dc2626', fontSize: '0.8em', fontWeight: '600', marginTop: '4px' }}>
-                  ⚠️ {errorMsg}
-                </div>
-              )}
+              {errorMsg && <div className="drw-help err" role="alert">{errorMsg}</div>}
             </div>
           )}
 
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
-              📁 Project / Category
-            </label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid #c5c0b1',
-                background: '#fffefb',
-                color: '#201515',
-                fontSize: '0.95em',
-                boxSizing: 'border-box'
-              }}
-            >
-              <option value="">No Project (General)</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  ● {p.name}
-                </option>
-              ))}
+          <div className="drw-group">
+            <label className="drw-label" htmlFor="ed-proj">Project</label>
+            <select id="ed-proj" className="drw-field" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <option value="">No project</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid #c5c0b1',
-                outline: 'none',
-                fontSize: '0.9em',
-                background: '#fffefb',
-                color: '#201515',
-                boxSizing: 'border-box',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
-            />
+          <div className="drw-group">
+            <label className="drw-label" htmlFor="ed-desc">Description</label>
+            <textarea id="ed-desc" className="drw-field" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
-          {/* Priority Score Summary Card */}
-          <div style={{ background: '#f8f4f0', border: '1px solid #c5c0b1', borderRadius: '12px', padding: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '0.85em', fontWeight: '700', color: '#201515' }}>Eisenhower Matrix</span>
-              <span style={{ fontSize: '0.8em', fontWeight: '800', padding: '2px 8px', borderRadius: '10px', background: priorityScore >= 20 ? '#ffe4e6' : priorityScore >= 15 ? '#fff7ed' : priorityScore >= 10 ? '#fefce8' : '#f1f5f9', color: priorityScore >= 20 ? '#9f1239' : priorityScore >= 15 ? '#c2410c' : priorityScore >= 10 ? '#a16207' : '#334155' }}>
-                Priority: {priorityScore}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px' }}>
-                  <span>Urgency</span>
-                  <span>{urgencyLevel} / 5</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  value={urgencyLevel}
-                  onChange={(e) => setUrgencyLevel(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#ff4f00' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px' }}>
-                  <span>Importance</span>
-                  <span>{importanceLevel} / 5</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  value={importanceLevel}
-                  onChange={(e) => setImportanceLevel(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#ff4f00' }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85em', fontWeight: '700', marginBottom: '6px', color: '#36342e' }}>
-              Due Date
-            </label>
-            <input
-              type="date"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid #c5c0b1',
-                outline: 'none',
-                fontSize: '0.9em',
-                background: '#fffefb',
-                color: '#201515',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-          {/* Scheduled Time Block Section */}
-          <div style={{ background: '#f8f4f0', border: '1px solid #c5c0b1', borderRadius: '12px', padding: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '0.85em', fontWeight: '700', color: '#201515' }}>⏱️ Scheduled Time Block</span>
-              {isScheduled && (
-                <button
-                  type="button"
-                  onClick={() => setIsScheduled(false)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#dc2626',
-                    fontSize: '0.8em',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    padding: '2px 6px'
-                  }}
-                >
-                  🚫 Clear Schedule
+          <div className="drw-group" role="radiogroup" aria-label="Priority">
+            <span className="drw-label">Priority</span>
+            <div className="ed-quads">
+              {QUADRANT_ORDER.map((q) => (
+                <button key={q} type="button" role="radio" aria-checked={q === quadrant} className="ed-pt" onClick={() => pickQuadrant(q)}>
+                  <b>{QUADRANT_LABEL[q]}</b>
+                  <span>{QUADRANT_HINT[q]}</span>
                 </button>
-              )}
+              ))}
             </div>
+          </div>
 
+          <div className="drw-group">
+            <label className="drw-label" htmlFor="ed-due">Due date</label>
+            <input id="ed-due" className="drw-field" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+          </div>
+
+          <div className="drw-group">
+            <div className="ed-sched-head">
+              <span className="drw-label">Time block</span>
+              {isScheduled && <button type="button" className="btn quiet" style={{ height: 'var(--h-ctl-sm)' }} onClick={() => setIsScheduled(false)}>Clear</button>}
+            </div>
             {isScheduled ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px', color: '#36342e' }}>
-                    Schedule Date
-                  </label>
-                  <input
-                    type="date"
-                    value={scheduleDate}
-                    onChange={(e) => setScheduleDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #c5c0b1',
-                      background: '#fffefb',
-                      color: '#201515',
-                      fontSize: '0.9em',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+              <>
+                <div className="drw-group">
+                  <label className="drw-help" htmlFor="ed-sdate">Date</label>
+                  <input id="ed-sdate" className="drw-field" type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
                 </div>
-
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px', color: '#36342e' }}>
-                      Start Time
-                    </label>
-                    <select
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #c5c0b1',
-                        background: '#fffefb',
-                        color: '#201515',
-                        fontSize: '0.9em',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      {timeOptions.map((t) => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
+                <div className="ed-two">
+                  <div className="drw-group">
+                    <label className="drw-help" htmlFor="ed-start">Start</label>
+                    <select id="ed-start" className="drw-field" value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                      {timeOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
-
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.8em', fontWeight: '600', marginBottom: '4px', color: '#36342e' }}>
-                      Duration
-                    </label>
-                    <select
-                      value={durationMinutes}
-                      onChange={(e) => setDurationMinutes(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #c5c0b1',
-                        background: '#fffefb',
-                        color: '#201515',
-                        fontSize: '0.9em',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      <option value="15">15 Minutes</option>
-                      <option value="30">30 Minutes</option>
-                      <option value="45">45 Minutes</option>
-                      <option value="60">1 Hour</option>
-                      <option value="120">2 Hours</option>
-                      <option value="180">3 Hours</option>
+                  <div className="drw-group">
+                    <label className="drw-help" htmlFor="ed-dur">Length</label>
+                    <select id="ed-dur" className="drw-field" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)}>
+                      <option value="15">15 minutes</option>
+                      <option value="30">30 minutes</option>
+                      <option value="45">45 minutes</option>
+                      <option value="60">1 hour</option>
+                      <option value="120">2 hours</option>
+                      <option value="180">3 hours</option>
                     </select>
                   </div>
                 </div>
-              </div>
+                {range && <p className="drw-help">{range}</p>}
+              </>
             ) : (
-              <div>
-                <p style={{ margin: '0 0 10px 0', fontSize: '0.85em', color: '#605d52' }}>
-                  Not currently scheduled on calendar.
-                </p>
+              <>
+                <p className="drw-help">Not on the calendar.</p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsScheduled(true);
-                    setScheduleDate(getTodayDateString());
-                    setStartTime(getCurrentRoundedTime());
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px dashed #ff4f00',
-                    background: '#fffefb',
-                    color: '#ff4f00',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    fontSize: '0.85em'
-                  }}
+                  className="btn secondary"
+                  onClick={() => { setIsScheduled(true); setScheduleDate(getTodayDateString()); setStartTime(getCurrentRoundedTime()); }}
                 >
-                  ⏱️ Add Time Block to Schedule
+                  Add a time block
                 </button>
-              </div>
+              </>
             )}
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid #c5c0b1' }}>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid #c5c0b1',
-                  background: 'none',
-                  color: '#36342e',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  fontSize: '0.9em'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: '#ff4f00',
-                  color: '#fffefb',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  fontSize: '0.9em',
-                  boxShadow: '0 2px 4px rgba(255, 79, 0, 0.2)'
-                }}
-              >
-                Save Changes
-              </button>
-            </div>
-
-            {onArchive && (
-              <button
-                type="button"
-                onClick={() => {
-                  onArchive(task.id);
-                  onClose();
-                }}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  background: '#f8f4f0',
-                  color: '#475569',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  fontSize: '0.85em',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                📦 Archive Task (Hide from Board)
-              </button>
-            )}
+        <div className="drw-foot">
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn primary" style={{ flex: 1 }}>Save changes</button>
           </div>
-        </form>
-      </div>
+          {onArchive && (
+            <button type="button" className="btn quiet" onClick={() => { onArchive(task.id); onClose(); }}>Archive task</button>
+          )}
+        </div>
+      </form>
     </div>
   );
 }
+
+const editCss = `
+.ed-quads { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.ed-pt { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-height: 56px; min-width: 0; box-sizing: border-box; padding: var(--space-2) var(--space-3); border: 1px solid var(--control); border-radius: var(--r-md); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ed-pt b { font-size: var(--t-14); font-weight: 600; }
+.ed-pt span { font-size: var(--t-12); color: var(--text-2); }
+.ed-pt[aria-checked="true"] { background: var(--selected); border-color: var(--text); }
+@media (hover: hover) { .ed-pt:hover { border-color: var(--text); } }
+.ed-pt:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ed-sched-head { display: flex; align-items: center; justify-content: space-between; }
+.ed-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+`;
