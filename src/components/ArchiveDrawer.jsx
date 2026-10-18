@@ -1,6 +1,6 @@
 // src/components/ArchiveDrawer.jsx
 // Not drawn in the design: built from the Components artboard (3) fields, chips and buttons plus workspace.css.
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { drawerCss } from './TaskEditDrawer.jsx';
 import { projectSlot } from '../lib/day-list.js';
 
@@ -30,6 +30,13 @@ export default function ArchiveDrawer({
       return matchesSearch && matchesProject;
     });
   }, [archivedTasks, searchQuery, selectedProjectId]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

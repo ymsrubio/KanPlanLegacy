@@ -77,6 +77,13 @@ export default function TaskEditDrawer({ isOpen, onClose, onSave, task, projects
     }
   }, [task]);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !task) return null;
 
   const priorityScore = scoreOf({ urgency_level: urgencyLevel, importance_level: importanceLevel });
