@@ -62,6 +62,23 @@ PR 88 is closed. After the merges, `npm test` passes 102 of 103 with 1 skipped, 
 - Matrix: the desktop "Show N more" collapse from artboard 20 is unverified because the seed data is small.
 - Then open one PR from `redesign/workspace-shell` into `main`.
 
+## Coordinator pickup
+
+The coordinator session plans the work and hands each piece to its own session. It does not write unit code itself.
+
+- **Now:** PR 95 (`redesign/workspace-shell` into `main`) is open. Both checks pass, and it is waiting for the owner to merge.
+  - Auto-fix is not carried over. A new coordinator binds PR 95 and turns Auto-fix on again.
+- **How it runs:**
+  - One session per backlog item, cut from `redesign/workspace-shell` with `use_worktree`, each touching only its own files.
+  - An independent reviewer reads each PR before it is reported ready.
+  - Only the owner approves merges.
+- **Screenshots** go on an `evidence/<unit>` branch and are linked from the PR body, never committed to the code branch.
+- **Review note on PR 95:** `handleAddSwap` in `src/App.jsx` calls `requestReady` with the `tasks` captured before the add. If moving the new task into Ready fails, the rollback can't find it and the UI keeps it in Ready.
+  - Low risk, because "Swap a task" only shows when Ready is full, and that path opens the swap modal instead.
+- **Next options:**
+  - An in-app QA pass of the whole branch with `.claude/skills/verify/`, before or after PR 95 merges.
+  - The backlog above.
+
 ## Known gaps carried over
 
 - Dragging a task from the list onto the calendar was removed with the old board. Decide before rebuilding it.
