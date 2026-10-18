@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMatrix, readyRoom, roomNote } from '../src/lib/matrix.js';
+import { buildMatrix, readyRoom, roomNote, foldRows, phoneOrder, QUADRANT_ROWS } from '../src/lib/matrix.js';
 
 const columns = [
   { id: 1, name: 'Backlog' }, { id: 2, name: 'Ready to Start' }, { id: 3, name: 'In Progress' }, { id: 4, name: 'Done' },
@@ -57,4 +57,22 @@ test('matrix - roomNote wording', () => {
   assert.equal(roomNote(2), '2 spots open in Ready');
   assert.equal(roomNote(0), 'Ready is full');
   assert.equal(roomNote(null), '');
+});
+
+test('matrix - Do first hint reads Urgent and important', () => {
+  assert.equal(buildMatrix([], columns).find((q) => q.key === 'doFirst').hint, 'Urgent and important');
+});
+
+test('matrix - long quadrants fold to two rows with a hidden count, expanding shows all', () => {
+  const five = [1, 2, 3, 4, 5].map((i) => t(i, 1, 5, 5));
+  assert.equal(QUADRANT_ROWS, 2);
+  const f = foldRows(five, false);
+  assert.deepEqual([f.rows.map((x) => x.id), f.hidden], [[1, 2], 3]);
+  assert.equal(foldRows(five, true).hidden, 0);
+  assert.equal(foldRows(five.slice(0, 2), false).hidden, 0);
+  assert.equal(foldRows(five, false, Infinity).rows.length, 5);
+});
+
+test('matrix - phone order is Do first, Plan, Quick, Later', () => {
+  assert.deepEqual(phoneOrder(buildMatrix([], columns)).map((q) => q.key), ['doFirst', 'plan', 'quick', 'later']);
 });
