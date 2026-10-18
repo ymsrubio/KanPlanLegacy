@@ -23,11 +23,11 @@ export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pend
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  useEffect(() => setPickedId(null), [pendingTask?.id]);
+  useEffect(() => setPickedId(null), [isOpen, pendingTask?.id]);
 
   if (!isOpen || !pendingTask) return null;
 
-  const outId = pickedId ?? readyTasks[0]?.id;
+  const outId = readyTasks.some((t) => t.id === pickedId) ? pickedId : readyTasks[0]?.id;
   const swap = () => outId != null && onSwap(outId);
 
   return (
