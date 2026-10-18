@@ -43,4 +43,12 @@ export function foldRows(tasks, expanded, max = QUADRANT_ROWS) {
 
 // Phone reads top to bottom, so the most urgent quadrant comes first.
 export const PHONE_ORDER = ['doFirst', 'plan', 'quick', 'later'];
-export const phoneOrder = (quadrants) => PHONE_ORDER.map((k) => quadrants.find((q) => q.key === k));
+// Quadrants not listed in PHONE_ORDER keep their place after the listed ones, so none are dropped.
+export const phoneOrder = (quadrants) => {
+  const rank = (q) => { const i = PHONE_ORDER.indexOf(q.key); return i < 0 ? PHONE_ORDER.length : i; };
+  return [...quadrants].sort((a, b) => rank(a) - rank(b));
+};
+
+// Short label for the stage a task is in, from its column name.
+const STAGE_SHORT = { 'Ready to Start': 'Ready', 'In Progress': 'In progress' };
+export const stageLabel = (column) => (column ? STAGE_SHORT[column.name] ?? column.name : '');

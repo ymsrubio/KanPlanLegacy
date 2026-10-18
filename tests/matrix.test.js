@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMatrix, readyRoom, roomNote, foldRows, phoneOrder, QUADRANT_ROWS } from '../src/lib/matrix.js';
+import { buildMatrix, readyRoom, roomNote, foldRows, phoneOrder, stageLabel, QUADRANT_ROWS } from '../src/lib/matrix.js';
 
 const columns = [
   { id: 1, name: 'Backlog' }, { id: 2, name: 'Ready to Start' }, { id: 3, name: 'In Progress' }, { id: 4, name: 'Done' },
@@ -75,4 +75,17 @@ test('matrix - long quadrants fold to two rows with a hidden count, expanding sh
 
 test('matrix - phone order is Do first, Plan, Quick, Later', () => {
   assert.deepEqual(phoneOrder(buildMatrix([], columns)).map((q) => q.key), ['doFirst', 'plan', 'quick', 'later']);
+});
+
+test('matrix - stage label comes from the column name, custom columns keep their own', () => {
+  assert.equal(stageLabel({ name: 'Ready to Start' }), 'Ready');
+  assert.equal(stageLabel({ name: 'In Progress' }), 'In progress');
+  assert.equal(stageLabel({ name: 'Review' }), 'Review');
+  assert.equal(stageLabel(undefined), '');
+});
+
+test('matrix - phoneOrder never drops or throws on quadrants outside its list', () => {
+  const qs = [{ key: 'later' }, { key: 'extra' }, { key: 'doFirst' }];
+  assert.deepEqual(phoneOrder(qs).map((q) => q.key), ['doFirst', 'later', 'extra']);
+  assert.deepEqual(phoneOrder([]), []);
 });

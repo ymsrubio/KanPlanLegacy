@@ -3,7 +3,7 @@
 // One tap on Ready moves a Backlog task to Ready to start (swap flow when full).
 // Desktop: four quadrant panels, long ones fold to two rows. Phone: one card, four collapsible sections.
 import React, { useState } from 'react';
-import { buildMatrix, foldRows, phoneOrder, readyRoom, roomNote, MATRIX_FILTERS } from '../lib/matrix.js';
+import { buildMatrix, foldRows, phoneOrder, stageLabel, readyRoom, roomNote, MATRIX_FILTERS } from '../lib/matrix.js';
 import { projectSlot } from '../lib/day-list.js';
 import { useMedia } from '../lib/use-media.js';
 import Icon from './Icon.jsx';
@@ -16,7 +16,7 @@ export default function MatrixView({ tasks, columns, projects = [], selectedProj
   const [more, setMore] = useState({}); // desktop: key -> true when expanded
   const room = readyRoom(tasks, columns);
   const backlog = columns.find((c) => c.name === 'Backlog');
-  const stageOf = (t) => (columns.find((c) => Number(c.id) === Number(t.column_id))?.name === 'In Progress' ? 'In progress' : 'Ready');
+  const stageOf = (t) => stageLabel(columns.find((c) => Number(c.id) === Number(t.column_id)));
 
   const row = (t) => {
     const pi = projects.findIndex((p) => Number(p.id) === Number(t.project_id));
