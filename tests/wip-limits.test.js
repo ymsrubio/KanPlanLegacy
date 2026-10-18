@@ -36,3 +36,10 @@ test('a raised Ready limit stops the add flow from needing a swap', () => {
   assert.equal(readyPlan(tasks, [backlog, { id: 2, name: 'Ready to Start', wip_limit: 3 }], { column_id: 1 }).full, false);
   assert.equal(readyPlan(tasks, [backlog, { id: 2, name: 'Ready to Start', wip_limit: null }], { column_id: 1 }).full, false);
 });
+
+test('settleLimitSaves keeps columns that saved and names the ones that failed', async () => {
+  const { settleLimitSaves } = await import('../src/lib/wip-limits.js');
+  const changes = [{ id: 2, wip_limit: 5 }, { id: 3, wip_limit: 0 }];
+  const results = [{ status: 'fulfilled', value: { id: 2, wip_limit: 5 } }, { status: 'rejected', reason: new Error('x') }];
+  assert.deepEqual(settleLimitSaves(changes, results), { saved: [{ id: 2, wip_limit: 5 }], failedIds: [3] });
+});

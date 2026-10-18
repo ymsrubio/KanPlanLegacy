@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CalendarGrid from './components/CalendarGrid.jsx';
 import WipSwapModal from './components/WipSwapModal.jsx';
 import WipLimitsDialog from './components/WipLimitsDialog.jsx';
+import { settleLimitSaves } from './lib/wip-limits.js';
 import LoginPage from './components/LoginPage.jsx';
 import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import ArchiveDrawer from './components/ArchiveDrawer.jsx';
@@ -389,24 +390,26 @@ export default function App() {
     if (ok) showCalendarAlert(`"${out?.title}" went back to Backlog. "${pendingTask.title}" is ready to start.`);
   };
 
-  // Save changed WIP limits; the dialog stays open if any save fails.
+  // Save changed WIP limits. Columns that saved are applied even if another failed; returns an error message for the dialog, or null.
   const handleSaveWipLimits = async (changes) => {
-    try {
-      const saved = await Promise.all(changes.map(async ({ id, wip_limit }) => {
-        const res = await fetch(`/api/columns/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wip_limit })
-        });
-        if (!res.ok) throw new Error('PATCH failed');
-        return res.json();
-      }));
-      setColumns((prev) => prev.map((c) => saved.find((s) => Number(s.id) === Number(c.id)) || c));
-      setIsWipLimitsOpen(false);
-      showCalendarAlert('WIP limits saved');
-    } catch {
-      showCalendarAlert('Could not save WIP limits');
+    const results = await Promise.allSettled(changes.map(async ({ id, wip_limit }) => {
+      const res = await fetch(`/api/columns/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wip_limit })
+      });
+      if (!res.ok) throw new Error('PATCH failed');
+      return res.json();
+    }));
+    const { saved, failedIds } = settleLimitSaves(changes, results);
+    if (saved.length) setColumns((prev) => prev.map((c) => saved.find((s) => Number(s.id) === Number(c.id)) || c));
+    if (failedIds.length) {
+      const names = failedIds.map((id) => columns.find((c) => Number(c.id) === Number(id))?.name).filter(Boolean).join(', ');
+      return `Could not save: ${names}.`;
     }
+    setIsWipLimitsOpen(false);
+    showCalendarAlert('WIP limits saved');
+    return null;
   };
 
   // The Add task dialog's "Swap a task": save the task to Backlog, then offer the swap for Ready to start.

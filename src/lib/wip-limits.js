@@ -19,3 +19,12 @@ export function columnCounts(tasks) {
   for (const t of tasks) if (!t.is_archived) counts[t.column_id] = (counts[t.column_id] || 0) + 1;
   return counts;
 }
+
+// Fold Promise.allSettled results for the per-column saves into what to apply and what to report.
+// changes: [{ id, ... }] in the same order as results. A fulfilled value is the saved column.
+export function settleLimitSaves(changes, results) {
+  const saved = [];
+  const failedIds = [];
+  results.forEach((r, i) => (r.status === 'fulfilled' ? saved.push(r.value) : failedIds.push(changes[i].id)));
+  return { saved, failedIds };
+}

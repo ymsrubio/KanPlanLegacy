@@ -8,8 +8,9 @@ const toDraft = (columns) => Object.fromEntries(columns.map((c) => [c.id, c.wip_
 export default function WipLimitsDialog({ isOpen, onClose, columns, tasks, onSave }) {
   const [draft, setDraft] = useState({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
-  useEffect(() => { if (isOpen) { setDraft(toDraft(columns)); setSaving(false); } }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isOpen) { setDraft(toDraft(columns)); setSaving(false); setSaveError(null); } }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -27,7 +28,8 @@ export default function WipLimitsDialog({ isOpen, onClose, columns, tasks, onSav
 
   const save = async () => {
     setSaving(true);
-    await onSave(changed.map((p) => ({ id: p.col.id, wip_limit: p.res.value })));
+    const error = await onSave(changed.map((p) => ({ id: p.col.id, wip_limit: p.res.value })));
+    setSaveError(error);
     setSaving(false);
   };
 
@@ -65,6 +67,7 @@ export default function WipLimitsDialog({ isOpen, onClose, columns, tasks, onSav
             );
           })}
         </div>
+        {saveError && <p role="alert" style={{ fontSize: 'var(--t-12)', color: 'var(--error)' }}>{saveError}</p>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
           <button type="button" className="btn quiet" onClick={onClose}>Cancel</button>
           <button type="button" className="btn primary" disabled={invalid || saving || changed.length === 0} onClick={save}>Save limits</button>

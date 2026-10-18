@@ -362,7 +362,8 @@ app.patch('/columns/:id', async (c) => {
   const db = c.env.DB;
   const accountId = c.get('accountId');
   const columnId = Number(c.req.param('id'));
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body !== 'object' || !('wip_limit' in body)) return c.json({ error: 'wip_limit is required (a number, or null for no limit)' }, 400);
   const parsed = parseWipLimit(body.wip_limit);
   if (!parsed.ok) return c.json({ error: parsed.error }, 400);
 
