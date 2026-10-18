@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CalendarGrid from './components/CalendarGrid.jsx';
 import WipSwapModal from './components/WipSwapModal.jsx';
+import WipLimitsDialog from './components/WipLimitsDialog.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import ArchiveDrawer from './components/ArchiveDrawer.jsx';
@@ -35,6 +36,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isArchiveDrawerOpen, setIsArchiveDrawerOpen] = useState(false);
+  const [isWipLimitsOpen, setIsWipLimitsOpen] = useState(false);
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
   const [currentDateStr, setCurrentDateStr] = useState(getTodayDateString());
 
@@ -248,9 +250,11 @@ export default function App() {
       if (!res.ok) throw new Error('POST failed');
       const saved = await res.json();
       setTasks((prev) => prev.map((t) => (t.id === temp.id ? saved : t)));
+      return saved;
     } catch {
       setTasks((prev) => prev.filter((t) => t.id !== temp.id));
       showCalendarAlert('Failed to add task');
+      return null;
     }
   };
 
@@ -385,6 +389,33 @@ export default function App() {
     if (ok) showCalendarAlert(`"${out?.title}" went back to Backlog. "${pendingTask.title}" is ready to start.`);
   };
 
+  // Save changed WIP limits; the dialog stays open if any save fails.
+  const handleSaveWipLimits = async (changes) => {
+    try {
+      const saved = await Promise.all(changes.map(async ({ id, wip_limit }) => {
+        const res = await fetch(`/api/columns/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wip_limit })
+        });
+        if (!res.ok) throw new Error('PATCH failed');
+        return res.json();
+      }));
+      setColumns((prev) => prev.map((c) => saved.find((s) => Number(s.id) === Number(c.id)) || c));
+      setIsWipLimitsOpen(false);
+      showCalendarAlert('WIP limits saved');
+    } catch {
+      showCalendarAlert('Could not save WIP limits');
+    }
+  };
+
+  // The Add task dialog's "Swap a task": save the task to Backlog, then offer the swap for Ready to start.
+  // "Not now" in the modal leaves it in Backlog with its schedule.
+  const handleAddSwap = async (payload) => {
+    const saved = await handleAddTask(payload);
+    if (saved) await requestReady(saved);
+  };
+
   const handleAddProject = async (projectData) => {
     try {
       const res = await fetch('/api/projects', {
@@ -456,6 +487,7 @@ export default function App() {
       projects={projects}
       defaultProjectId={selectedProjectId}
       onAdd={handleAddTask}
+      onSwap={handleAddSwap}
       onCreateProject={(name, color) => handleAddProject({ name, color })}
       onDone={() => setAddOpen(false)}
     />
@@ -472,6 +504,13 @@ export default function App() {
         readyTasks={wipSwapState?.readyTasks || []}
         pendingTask={wipSwapState?.pendingTask}
         projects={projects}
+      />
+      <WipLimitsDialog
+        isOpen={isWipLimitsOpen}
+        onClose={() => setIsWipLimitsOpen(false)}
+        columns={columns}
+        tasks={tasks}
+        onSave={handleSaveWipLimits}
       />
       <ProjectManagerModal
         isOpen={isProjectModalOpen}
@@ -532,6 +571,7 @@ export default function App() {
           <Menu buttonClass="btn secondary icon" ariaLabel="More" button={<Icon name="more" />}>
             {(close) => (
               <>
+                <button type="button" className="row" role="menuitem" onClick={() => { close(); setIsWipLimitsOpen(true); }}>WIP limits</button>
                 <button type="button" className="row" role="menuitem" onClick={() => { close(); setIsProjectModalOpen(true); }}>Projects</button>
                 <button type="button" className="row" role="menuitem" onClick={() => { close(); setIsArchiveDrawerOpen(true); }}>Archive<span className="n">{archivedTasks.length}</span></button>
                 <button type="button" className="row" role="menuitemcheckbox" aria-checked={autoScheduleEnabled} onClick={() => setAutoScheduleEnabled((on) => !on)}>
