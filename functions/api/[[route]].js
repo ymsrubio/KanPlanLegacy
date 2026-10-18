@@ -5,6 +5,7 @@
 import { Hono } from 'hono';
 import { handle } from 'hono/cloudflare-pages';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { parseWipLimit } from '../../src/lib/wip-limits.js';
 
 const app = new Hono().basePath('/api');
 
@@ -356,6 +357,23 @@ app.get('/columns', async (c) => {
   return c.json(results);
 });
 
+// PATCH /api/columns/:id — Set a column's WIP limit (whole number 1-99, or null for no limit)
+app.patch('/columns/:id', async (c) => {
+  const db = c.env.DB;
+  const accountId = c.get('accountId');
+  const columnId = Number(c.req.param('id'));
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body !== 'object' || !('wip_limit' in body)) return c.json({ error: 'wip_limit is required (a number, or null for no limit)' }, 400);
+  const parsed = parseWipLimit(body.wip_limit);
+  if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+
+  const column = await db.prepare('SELECT * FROM columns WHERE id = ? AND account_id = ?').bind(columnId, accountId).first();
+  if (!column) return c.json({ error: 'Column not found' }, 404);
+
+  await db.prepare('UPDATE columns SET wip_limit = ? WHERE id = ? AND account_id = ?').bind(parsed.value, columnId, accountId).run();
+  return c.json({ ...column, wip_limit: parsed.value });
+});
+
 // ============================================================
 // Project routes (account-scoped)
 // ============================================================
@@ -378,6 +396,9 @@ app.post('/projects', async (c) => {
 
   const trimmedName = name.trim();
   const trimmedColor = color?.trim() || '#ff4f00';
+
+  const taken = await db.prepare('SELECT id FROM projects WHERE account_id = ? AND LOWER(name) = LOWER(?)').bind(accountId, trimmedName).first();
+  if (taken) return c.json({ error: 'That name is taken' }, 409);
 
   const { meta } = await db.prepare('INSERT INTO projects (account_id, name, color) VALUES (?, ?, ?)')
     .bind(accountId, trimmedName, trimmedColor)

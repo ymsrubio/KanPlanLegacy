@@ -1,0 +1,12 @@
+/* Bottom sheet: tokens only (see tokens.css). */
+.bs-back { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-end; background: var(--scrim); }
+.bs { box-sizing: border-box; width: 100%; max-height: 90dvh; padding: var(--space-4); border-radius: var(--r-lg) var(--r-lg) 0 0; background: var(--surface); border: 1px solid var(--rule); border-bottom: none; font-family: var(--font-body); color: var(--text); animation: bs-up 0.18s ease-out; }
+@keyframes bs-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bs { animation: none; } }
+.bs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+.bs-title { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.bs-x { width: var(--h-ctl); height: var(--h-ctl); border: none; border-radius: var(--r-pill); background: transparent; color: var(--text); font-size: 16px; cursor: pointer; }
+.bs .at-pop { top: auto; bottom: calc(100% + var(--space-1)); }
+.bs-x:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+

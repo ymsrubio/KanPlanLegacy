@@ -1,262 +1,118 @@
 // src/components/ProjectManagerModal.jsx
-import React, { useState } from 'react';
+// Projects dialog from the More menu. Artboards 10 (create row), 16 (name taken) and 13 (colors come from the project's position).
+import React, { useEffect, useRef, useState } from 'react';
+import Icon from './Icon.jsx';
+import { projectColor, projectSlot } from '../lib/day-list.js';
+import { nameTaken } from '../lib/add-task.js';
 
-const PRESET_COLORS = [
-  '#ff4f00', // KanPlan Orange
-  '#3b82f6', // Blue
-  '#10b981', // Emerald
-  '#8b5cf6', // Violet
-  '#f59e0b', // Amber
-  '#ec4899', // Pink
-  '#64748b', // Slate
-  '#06b6d4'  // Cyan
-];
+const inputStyle = {
+  flex: 1,
+  minWidth: 0,
+  height: 'var(--h-ctl)',
+  boxSizing: 'border-box',
+  padding: '0 var(--space-3)',
+  border: '1px solid var(--control)',
+  borderRadius: 'var(--r-md)',
+  background: 'var(--surface)',
+  font: 'inherit',
+  fontSize: 'var(--t-15)',
+  color: 'var(--text)',
+  outlineColor: 'var(--focus)'
+};
+const noteStyle = { fontSize: 'var(--t-12)', lineHeight: 1.4, color: 'var(--text-2)', padding: '0 var(--space-3)' };
+const errorStyle = { ...noteStyle, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--error)', fontWeight: 500 };
 
 export default function ProjectManagerModal({ isOpen, onClose, projects, onAddProject, onDeleteProject }) {
-  const [newProjectName, setNewProjectName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const [name, setName] = useState('');
+  const [serverError, setServerError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName('');
+    setServerError('');
+    inputRef.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!newProjectName.trim()) {
-      setError('Please enter a project name');
-      return;
-    }
+  const trimmed = name.trim();
+  const error = trimmed && nameTaken(projects, trimmed) ? `${trimmed} already exists. Pick another name.` : serverError;
+  const canCreate = Boolean(trimmed) && !error && !busy;
 
-    setIsSubmitting(true);
-    setError(null);
+  const create = async (e) => {
+    e.preventDefault();
+    if (!canCreate) return;
+    setBusy(true);
     try {
-      await onAddProject({
-        name: newProjectName.trim(),
-        color: selectedColor
-      });
-      setNewProjectName('');
-      setSelectedColor(PRESET_COLORS[0]);
+      await onAddProject({ name: trimmed, color: projectColor(projects.length) });
+      setName('');
     } catch (err) {
-      setError(err.message || 'Failed to create project');
+      setServerError(err.message);
     } finally {
-      setIsSubmitting(false);
+      setBusy(false);
     }
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(32, 21, 21, 0.55)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: '20px'
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: '#fffefb',
-          borderRadius: '16px',
-          padding: '24px',
-          width: '100%',
-          maxWidth: '460px',
-          boxShadow: '0 20px 40px rgba(32, 21, 21, 0.25)',
-          border: '1px solid #c5c0b1',
-          color: '#201515'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.2em' }}>📁</span>
-            <h2 style={{ margin: 0, fontSize: '1.2em', fontWeight: '800' }}>Manage Projects & Categories</h2>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.2em',
-              cursor: 'pointer',
-              color: '#605d52',
-              padding: '4px'
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Existing Projects List */}
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ fontSize: '0.8em', fontWeight: '700', color: '#605d52', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Existing Projects ({projects.length})
-          </label>
-          <div
-            style={{
-              marginTop: '8px',
-              maxHeight: '180px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              border: '1px solid #e8e4de',
-              borderRadius: '10px',
-              padding: '8px',
-              background: '#f8f4f0'
-            }}
-          >
-            {projects.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '12px', color: '#939084', fontSize: '0.85em' }}>
-                No custom projects yet. Create your first one below!
-              </div>
-            ) : (
-              projects.map((proj) => (
-                <div
-                  key={proj.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    background: '#fffefb',
-                    border: '1px solid #c5c0b1'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        background: proj.color || '#ff4f00'
-                      }}
-                    />
-                    <span style={{ fontWeight: '700', fontSize: '0.9em' }}>{proj.name}</span>
-                  </div>
-                  {onDeleteProject && (
-                    <button
-                      onClick={() => onDeleteProject(proj.id)}
-                      title={`Delete ${proj.name}`}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#dc2626',
-                        cursor: 'pointer',
-                        fontSize: '0.85em',
-                        padding: '2px 6px',
-                        borderRadius: '4px'
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Add New Project Form */}
-        <form onSubmit={handleSubmit}>
-          <label style={{ fontSize: '0.8em', fontWeight: '700', color: '#605d52', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Create New Project
-          </label>
-
-          <div style={{ marginTop: '8px', marginBottom: '12px' }}>
-            <input
-              type="text"
-              placeholder="e.g. Client Alpha, Marketing, Personal"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: '1px solid #c5c0b1',
-                fontSize: '0.9em',
-                background: '#fffefb',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-          {/* Color Picker */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '0.75em', fontWeight: '700', color: '#605d52', marginBottom: '8px' }}>
-              Color Tag
-            </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {PRESET_COLORS.map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setSelectedColor(c)}
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    background: c,
-                    border: selectedColor === c ? '3px solid #201515' : '1px solid rgba(0,0,0,0.1)',
-                    cursor: 'pointer',
-                    transform: selectedColor === c ? 'scale(1.15)' : 'scale(1)',
-                    transition: 'all 0.15s ease'
-                  }}
-                />
+    <div className="scrim" onClick={onClose}>
+      <div className="dlg" role="dialog" aria-modal="true" aria-labelledby="projects-title" style={{ width: 440 }} onClick={(e) => e.stopPropagation()}>
+        <h2 id="projects-title">Projects</h2>
+        {projects.length > 0 && (
+          <>
+            <ul aria-label="Projects" style={{ maxHeight: 'calc(var(--h-row) * 6)', overflowY: 'auto' }}>
+              {projects.map((p, i) => (
+                <li key={p.id} className="row" style={{ paddingRight: 0 }}>
+                  <span className={`dot d${projectSlot(i)}`} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                  <button type="button" className="btn quiet icon" aria-label={`Delete ${p.name}`} onClick={() => onDeleteProject(p.id)}>
+                    <Icon name="close" />
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
+            <hr style={{ border: 0, borderTop: '1px solid var(--rule)', margin: 0 }} />
+          </>
+        )}
+        <form onSubmit={create} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 'var(--space-3)' }}>
+            <span className={`dot d${projectSlot(projects.length)}`} />
+            <input
+              ref={inputRef}
+              style={error ? { ...inputStyle, borderColor: 'var(--error)', outlineColor: 'var(--error)' } : inputStyle}
+              placeholder="New project"
+              aria-label="New project name"
+              aria-invalid={Boolean(error)}
+              aria-describedby="projects-hint"
+              autoComplete="off"
+              value={name}
+              onChange={(e) => { setName(e.target.value); setServerError(''); }}
+            />
+            <button type="submit" className="btn primary" disabled={!canCreate}>Create</button>
           </div>
-
-          {error && (
-            <div style={{ color: '#dc2626', fontSize: '0.8em', marginBottom: '12px', fontWeight: '600' }}>
-              ⚠️ {error}
-            </div>
+          {error ? (
+            <p id="projects-hint" role="alert" style={errorStyle}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <circle cx="8" cy="8" r="5.5" />
+                <path d="M8 5v3.5M8 10.8v.2" />
+              </svg>
+              {error}
+            </p>
+          ) : (
+            <p id="projects-hint" style={noteStyle}>Gets the next free color. After 5 they repeat, and the name always shows.</p>
           )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '10px',
-                border: '1px solid #c5c0b1',
-                background: '#f8f4f0',
-                color: '#605d52',
-                fontWeight: '700',
-                fontSize: '0.85em',
-                cursor: 'pointer'
-              }}
-            >
-              Close
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !newProjectName.trim()}
-              style={{
-                padding: '10px 20px',
-                borderRadius: '10px',
-                border: 'none',
-                background: '#ff4f00',
-                color: '#fffefb',
-                fontWeight: '700',
-                fontSize: '0.85em',
-                cursor: newProjectName.trim() ? 'pointer' : 'not-allowed',
-                opacity: newProjectName.trim() ? 1 : 0.6,
-                boxShadow: '0 2px 8px rgba(255, 79, 0, 0.3)'
-              }}
-            >
-              {isSubmitting ? 'Creating...' : '+ Create Project'}
-            </button>
-          </div>
         </form>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn secondary" onClick={onClose}>Done</button>
+        </div>
       </div>
     </div>
   );

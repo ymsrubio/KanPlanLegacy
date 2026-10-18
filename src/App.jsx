@@ -1,23 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
-import KanbanBoard from './components/KanbanBoard.jsx';
+import React, { useState, useEffect } from 'react';
 import CalendarGrid from './components/CalendarGrid.jsx';
 import WipSwapModal from './components/WipSwapModal.jsx';
+import WipLimitsDialog from './components/WipLimitsDialog.jsx';
+import { settleLimitSaves } from './lib/wip-limits.js';
 import LoginPage from './components/LoginPage.jsx';
-import UserMenu from './components/UserMenu.jsx';
-import ProjectSelector from './components/ProjectSelector.jsx';
 import ProjectManagerModal from './components/ProjectManagerModal.jsx';
 import ArchiveDrawer from './components/ArchiveDrawer.jsx';
+import DayList from './components/DayList.jsx';
+import AddTask from './components/AddTask.jsx';
+import MatrixView from './components/MatrixView.jsx';
+import BottomSheet from './components/BottomSheet.jsx';
+import Menu from './components/Menu.jsx';
+import Icon from './components/Icon.jsx';
+import { projectSlot } from './lib/day-list.js';
+import './workspace.css';
+import { useMedia } from './lib/use-media.js';
 import TaskEditDrawer from './components/TaskEditDrawer.jsx';
 import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
 import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
+import { readyPlan, swapUpdates, applyUpdates } from './lib/wip-swap.js';
 
 export default function App() {
   // Auth state
   const [authState, setAuthState] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
   const [user, setUser] = useState(null);
 
-  const [layoutMode, setLayoutMode] = useState('split');
+  const [view, setView] = useState('list');
+  const isPhone = useMedia('(max-width: 640px)');
+  const [addOpen, setAddOpen] = useState(false);
   const [columns, setColumns] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [archivedTasks, setArchivedTasks] = useState([]);
@@ -26,6 +37,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isArchiveDrawerOpen, setIsArchiveDrawerOpen] = useState(false);
+  const [isWipLimitsOpen, setIsWipLimitsOpen] = useState(false);
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true);
   const [currentDateStr, setCurrentDateStr] = useState(getTodayDateString());
 
@@ -37,6 +49,11 @@ export default function App() {
     setCalendarAlert(msg);
     setTimeout(() => setCalendarAlert(null), 4000);
   };
+
+  // The calendar stays mounted (hidden) to keep its state; let it re-measure when shown.
+  useEffect(() => {
+    window.dispatchEvent(new Event('resize'));
+  }, [isPhone, view]);
 
   // Check auth on mount
   useEffect(() => {
@@ -90,7 +107,7 @@ export default function App() {
       if (hasDateChanged(currentDateStr, now)) {
         const newDate = getTodayDateString(now);
         setCurrentDateStr(newDate);
-        showCalendarAlert(`🗓️ New day started (${newDate})! Calendar & schedule updated.`);
+        showCalendarAlert(`New day started (${newDate})! Calendar & schedule updated.`);
       }
 
       // 2. Auto-schedule transitions check
@@ -131,7 +148,7 @@ export default function App() {
             console.log('Failed to persist auto transition / demotion to server');
           }
 
-          showCalendarAlert(`⚡ "${task.title}" auto-started! Moved "${demotedTask?.title || 'lowest priority'}" to Backlog (WIP Limit).`);
+          showCalendarAlert(`"${task.title}" auto-started! Moved "${demotedTask?.title || 'lowest priority'}" to Backlog (WIP Limit).`);
         } else {
           setTasks((prev) =>
             prev.map((t) => (Number(t.id) === taskId ? { ...t, column_id: targetColumnId } : t))
@@ -148,7 +165,7 @@ export default function App() {
           }
 
           const actionText = reason === 'start' ? 'In Progress' : 'Done';
-          showCalendarAlert(`⚡ "${task.title}" automatically moved to ${actionText}!`);
+          showCalendarAlert(`"${task.title}" automatically moved to ${actionText}!`);
         }
       });
 
@@ -167,7 +184,7 @@ export default function App() {
               console.log('Failed to persist auto-archive to server');
             }
 
-            showCalendarAlert(`📦 Auto-archived "${task.title}" (completed > 24h ago).`);
+            showCalendarAlert(`Auto-archived "${task.title}" (completed > 24h ago).`);
           });
         }
       }
@@ -186,12 +203,12 @@ export default function App() {
     const archivedItem = { ...taskToArchive, is_archived: 1, archived_at: new Date().toISOString() };
     setTasks((prev) => prev.filter((t) => Number(t.id) !== Number(taskId)));
     setArchivedTasks((prev) => [archivedItem, ...prev]);
-    showCalendarAlert(`📦 "${taskToArchive.title}" moved to Archives.`);
+    showCalendarAlert(`"${taskToArchive.title}" moved to Archives.`);
 
     try {
       await fetch(`/api/tasks/${taskId}/archive`, { method: 'POST' });
     } catch (err) {
-      showCalendarAlert('⚠️ Failed to archive task');
+      showCalendarAlert('Failed to archive task');
     }
   };
 
@@ -202,23 +219,61 @@ export default function App() {
     const restoredItem = { ...taskToRestore, is_archived: 0, archived_at: null };
     setArchivedTasks((prev) => prev.filter((t) => Number(t.id) !== Number(taskId)));
     setTasks((prev) => [...prev, restoredItem]);
-    showCalendarAlert(`↩️ "${taskToRestore.title}" restored to board!`);
+    showCalendarAlert(`"${taskToRestore.title}" restored to board!`);
 
     try {
       await fetch(`/api/tasks/${taskId}/restore`, { method: 'POST' });
     } catch (err) {
-      showCalendarAlert('⚠️ Failed to restore task');
+      showCalendarAlert('Failed to restore task');
     }
   };
 
   const handlePermanentDeleteArchivedTask = async (taskId) => {
     setArchivedTasks((prev) => prev.filter((t) => Number(t.id) !== Number(taskId)));
-    showCalendarAlert('🗑️ Archived task permanently deleted');
+    showCalendarAlert('Archived task permanently deleted');
 
     try {
       await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
     } catch (err) {
-      showCalendarAlert('⚠️ Failed to delete archived task');
+      showCalendarAlert('Failed to delete archived task');
+    }
+  };
+
+  const handleAddTask = async (payload) => {
+    const temp = { id: `tmp-${Date.now()}`, ...payload };
+    setTasks((prev) => [...prev, temp]);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('POST failed');
+      const saved = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === temp.id ? saved : t)));
+      return saved;
+    } catch {
+      setTasks((prev) => prev.filter((t) => t.id !== temp.id));
+      showCalendarAlert('Failed to add task');
+      return null;
+    }
+  };
+
+  const handleCompleteTask = async (task) => {
+    const done = columns.find((c) => c.name === 'Done');
+    if (!done) return;
+    const completed_at = new Date().toISOString();
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, column_id: done.id, completed_at } : t)));
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ column_id: done.id, completed_at })
+      });
+      if (!res.ok) throw new Error('PATCH failed');
+    } catch {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+      showCalendarAlert('Failed to complete task');
     }
   };
 
@@ -237,9 +292,17 @@ export default function App() {
 
   // Task Edit Handler
   const handleSaveEdit = async (updatedTask) => {
+    const original = tasks.find((t) => t.id === updatedTask.id);
+    const plan = original && readyPlan(tasks, columns, original);
+    if (plan?.full && Number(updatedTask.column_id) === Number(plan.ready.id)) {
+      const { id, column_id, ...patch } = updatedTask;
+      setEditingTask(null);
+      setWipSwapState({ pendingTask: original, patch, readyTasks: plan.candidates });
+      return;
+    }
     setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
     setEditingTask(null);
-    showCalendarAlert(`✏️ Task "${updatedTask.title}" updated!`);
+    showCalendarAlert(`Task "${updatedTask.title}" updated!`);
 
     try {
       await fetch(`/api/tasks/${updatedTask.id}`, {
@@ -273,91 +336,87 @@ export default function App() {
     }
   };
 
-  // Calendar: external drop from Kanban
-  const handleExternalDrop = (taskId, startIso, endIso) => {
-    const readyToStartCol = columns.find((c) => c.name === 'Ready to Start');
-    const readyTasks = readyToStartCol ? tasks.filter((t) => Number(t.column_id) === readyToStartCol.id) : [];
-    const task = tasks.find((t) => Number(t.id) === taskId);
-
-    if (!task) return;
-
-    // Check WIP limit
-    if (
-      readyToStartCol &&
-      readyToStartCol.wip_limit !== null &&
-      Number(task.column_id) !== readyToStartCol.id &&
-      readyTasks.length >= readyToStartCol.wip_limit
-    ) {
-      setWipSwapState({
-        pendingTask: task,
-        startIso,
-        endIso,
-        readyTasks,
-        readyToStartCol
+  // Optimistic ordered updates [{ id, patch }]. On failure, restore the UI and any updates the server already took.
+  const persistUpdates = async (updates) => {
+    const before = tasks;
+    setTasks((prev) => applyUpdates(prev, updates));
+    const saved = [];
+    try {
+      for (const u of updates) {
+        const res = await fetch(`/api/tasks/${u.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(u.patch)
+        });
+        if (!res.ok) throw new Error('PATCH failed');
+        saved.push(u);
+      }
+      return true;
+    } catch {
+      const originals = (u) => before.find((t) => Number(t.id) === Number(u.id));
+      setTasks((prev) => prev.map((t) => (updates.some((u) => Number(u.id) === Number(t.id)) ? originals({ id: t.id }) ?? t : t)));
+      saved.forEach((u) => {
+        const o = originals(u);
+        fetch(`/api/tasks/${u.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ column_id: o.column_id, schedule_start: o.schedule_start ?? null, schedule_end: o.schedule_end ?? null })
+        }).catch(() => {});
       });
+      showCalendarAlert('Could not save that change. Nothing was moved.');
+      return false;
+    }
+  };
+
+  // Move a task into Ready to start; offer a swap instead of an error when it is full.
+  const requestReady = async (task, patch = {}) => {
+    const plan = readyPlan(tasks, columns, task);
+    if (!plan.ready) return;
+    if (plan.full) {
+      setWipSwapState({ pendingTask: task, patch, readyTasks: plan.candidates });
       return;
     }
-
-    completeExternalDrop(task, startIso, endIso, readyToStartCol);
+    const ok = await persistUpdates([{ id: task.id, patch: { column_id: plan.ready.id, ...patch } }]);
+    if (ok) showCalendarAlert(patch.schedule_start ? `"${task.title}" scheduled & moved to Ready to start!` : `"${task.title}" is ready to start.`);
   };
 
-  const completeExternalDrop = async (task, startIso, endIso, readyToStartCol) => {
-    const targetColId = readyToStartCol ? readyToStartCol.id : task.column_id;
-    setTasks((prev) =>
-      prev.map((t) =>
-        Number(t.id) === Number(task.id)
-          ? { ...t, column_id: targetColId, schedule_start: startIso, schedule_end: endIso }
-          : t
-      )
-    );
-
-    try {
-      await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          column_id: targetColId,
-          schedule_start: startIso,
-          schedule_end: endIso
-        })
-      });
-    } catch (err) {
-      console.log('Failed to persist calendar drop to server');
-    }
-
-    showCalendarAlert(`✅ "${task.title}" scheduled & moved to Ready to Start!`);
-  };
-
-  // WIP swap: move selected task back to Backlog, then complete the pending drop
-  const handleWipSwap = async (swapTaskId) => {
+  // Swap: return the chosen task to Backlog, then move the pending one in.
+  const handleWipSwap = async (outId) => {
     if (!wipSwapState) return;
+    const { pendingTask, patch } = wipSwapState;
+    const out = tasks.find((t) => Number(t.id) === Number(outId));
+    const ok = await persistUpdates(swapUpdates(columns, pendingTask.id, outId, patch));
+    setWipSwapState(null);
+    if (ok) showCalendarAlert(`"${out?.title}" went back to Backlog. "${pendingTask.title}" is ready to start.`);
+  };
 
-    const backlogCol = columns.find((c) => c.name === 'Backlog');
-    const backlogId = backlogCol ? backlogCol.id : (columns[0] ? columns[0].id : 1);
-
-    setTasks((prev) =>
-      prev.map((t) =>
-        Number(t.id) === swapTaskId
-          ? { ...t, column_id: backlogId, schedule_start: null, schedule_end: null }
-          : t
-      )
-    );
-
-    try {
-      await fetch(`/api/tasks/${swapTaskId}`, {
+  // Save changed WIP limits. Columns that saved are applied even if another failed; returns an error message for the dialog, or null.
+  const handleSaveWipLimits = async (changes) => {
+    const results = await Promise.allSettled(changes.map(async ({ id, wip_limit }) => {
+      const res = await fetch(`/api/columns/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: backlogId, schedule_start: null, schedule_end: null })
+        body: JSON.stringify({ wip_limit })
       });
-    } catch (err) {
-      console.log('Failed to persist swap to server');
+      if (!res.ok) throw new Error('PATCH failed');
+      return res.json();
+    }));
+    const { saved, failedIds } = settleLimitSaves(changes, results);
+    if (saved.length) setColumns((prev) => prev.map((c) => saved.find((s) => Number(s.id) === Number(c.id)) || c));
+    if (failedIds.length) {
+      const names = failedIds.map((id) => columns.find((c) => Number(c.id) === Number(id))?.name).filter(Boolean).join(', ');
+      return `Could not save: ${names}.`;
     }
+    setIsWipLimitsOpen(false);
+    showCalendarAlert('WIP limits saved');
+    return null;
+  };
 
-    const swappedTask = tasks.find((t) => Number(t.id) === swapTaskId);
-    showCalendarAlert(`↩️ "${swappedTask?.title}" moved back to Backlog.`);
-
-    await completeExternalDrop(wipSwapState.pendingTask, wipSwapState.startIso, wipSwapState.endIso, wipSwapState.readyToStartCol);
-    setWipSwapState(null);
+  // The Add task dialog's "Swap a task": save the task to Backlog, then offer the swap for Ready to start.
+  // "Not now" in the modal leaves it in Backlog with its schedule.
+  const handleAddSwap = async (payload) => {
+    const saved = await handleAddTask(payload);
+    if (saved) await requestReady(saved);
   };
 
   const handleAddProject = async (projectData) => {
@@ -370,13 +429,14 @@ export default function App() {
       if (res.ok) {
         const newProject = await res.json();
         setProjects((prev) => [...prev, newProject]);
-        showCalendarAlert(`✅ Project "${newProject.name}" created!`);
+        showCalendarAlert(`Project "${newProject.name}" created!`);
+        return newProject;
       } else {
         const err = await res.json();
         throw new Error(err.error || 'Failed to create project');
       }
     } catch (err) {
-      showCalendarAlert(`⚠️ ${err.message}`);
+      showCalendarAlert(`${err.message}`);
       throw err;
     }
   };
@@ -394,84 +454,52 @@ export default function App() {
         if (Number(selectedProjectId) === Number(projectId)) {
           setSelectedProjectId(null);
         }
-        showCalendarAlert('🗑️ Project deleted');
+        showCalendarAlert('Project deleted');
       }
     } catch (err) {
-      showCalendarAlert('⚠️ Failed to delete project');
+      showCalendarAlert('Failed to delete project');
     }
   };
 
   // --- Render ---
 
-  // Loading state
   if (authState === 'loading') {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#fffefb',
-          fontFamily: 'Inter, system-ui, sans-serif',
-          color: '#605d52'
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2em', marginBottom: '12px' }}>🎯</div>
-          <div style={{ fontWeight: '600' }}>Loading KanPlan...</div>
-        </div>
+      <div className="app-root ws" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <p className="sub">Loading KanPlan…</p>
       </div>
     );
   }
 
-  // Unauthenticated — show login page
   if (authState === 'unauthenticated') {
     return <LoginPage />;
   }
 
-  // Authenticated — show workspace
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        width: '100vw',
-        background: '#fffefb',
-        boxSizing: 'border-box',
-        padding: '16px',
-        overflow: 'hidden',
-        fontFamily: 'Inter, system-ui, sans-serif'
-      }}
-    >
-      {/* Calendar Toast Notification */}
-      {calendarAlert && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#201515',
-            color: '#fffefb',
-            padding: '10px 24px',
-            borderRadius: '10px',
-            fontWeight: '700',
-            fontSize: '0.9em',
-            boxShadow: '0 8px 24px rgba(32, 21, 21, 0.25)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            border: '1px solid #ff4f00'
-          }}
-        >
-          {calendarAlert}
-        </div>
-      )}
+  // Desktop shows Day (list + calendar) or Matrix; phones show one of List, Calendar, Matrix.
+  const tabs = isPhone ? [['list', 'List'], ['calendar', 'Calendar'], ['matrix', 'Matrix']] : [['list', 'Day'], ['matrix', 'Matrix']];
+  const tab = !isPhone && view === 'calendar' ? 'list' : view;
+  const show = { list: tab === 'list', calendar: isPhone ? tab === 'calendar' : tab === 'list', matrix: tab === 'matrix' };
+  const projectIndex = projects.findIndex((p) => Number(p.id) === Number(selectedProjectId));
+  const countFor = (id) => tasks.filter((t) => !t.is_archived && (id == null || Number(t.project_id) === Number(id))).length;
+  const today = new Date(`${currentDateStr}T00:00:00`);
 
-      {/* Interactive WIP Swap Modal */}
+  const addTask = (
+    <AddTask
+      tasks={tasks}
+      columns={columns}
+      projects={projects}
+      defaultProjectId={selectedProjectId}
+      onAdd={handleAddTask}
+      onSwap={handleAddSwap}
+      onCreateProject={(name, color) => handleAddProject({ name, color })}
+      onDone={() => setAddOpen(false)}
+    />
+  );
+
+  return (
+    <div className="app-root ws">
+      {calendarAlert && <div className="toast" role="status">{calendarAlert}</div>}
+
       <WipSwapModal
         isOpen={Boolean(wipSwapState)}
         onClose={() => setWipSwapState(null)}
@@ -480,8 +508,13 @@ export default function App() {
         pendingTask={wipSwapState?.pendingTask}
         projects={projects}
       />
-
-      {/* Project & Category Manager Modal */}
+      <WipLimitsDialog
+        isOpen={isWipLimitsOpen}
+        onClose={() => setIsWipLimitsOpen(false)}
+        columns={columns}
+        tasks={tasks}
+        onSave={handleSaveWipLimits}
+      />
       <ProjectManagerModal
         isOpen={isProjectModalOpen}
         onClose={() => setIsProjectModalOpen(false)}
@@ -489,8 +522,6 @@ export default function App() {
         onAddProject={handleAddProject}
         onDeleteProject={handleDeleteProject}
       />
-
-      {/* Archived Tasks Drawer */}
       <ArchiveDrawer
         isOpen={isArchiveDrawerOpen}
         onClose={() => setIsArchiveDrawerOpen(false)}
@@ -499,8 +530,6 @@ export default function App() {
         onRestoreTask={handleRestoreTask}
         onPermanentDelete={handlePermanentDeleteArchivedTask}
       />
-
-      {/* Task Edit Slide-Over Drawer */}
       <TaskEditDrawer
         isOpen={Boolean(editingTask)}
         onClose={() => setEditingTask(null)}
@@ -512,207 +541,105 @@ export default function App() {
         onArchive={handleArchiveTask}
       />
 
-      {/* Fixed Header */}
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
-          marginBottom: '16px',
-          background: '#f8f4f0',
-          padding: '14px 24px',
-          borderRadius: '12px',
-          border: '1px solid #c5c0b1',
-          flexShrink: 0
-        }}
-      >
+      <header className="bar">
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.4em', color: '#201515', fontWeight: '700', letterSpacing: '-0.5px' }}>
-            🎯 KanPlan
-          </h1>
-          <p style={{ margin: '2px 0 0 0', fontSize: '0.85em', color: '#605d52' }}>
-            Agile Kanban WIP Limits + Calendar Time Blocking
-          </p>
+          <h1 className="display">Today</h1>
+          <p className="sub">{today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Project Selector & Filter */}
-          <ProjectSelector
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            onSelectProject={setSelectedProjectId}
-            onOpenManager={() => setIsProjectModalOpen(true)}
-          />
-
-          {/* View Mode Toggle */}
-          <div style={{ display: 'flex', gap: '4px', background: '#fffefb', padding: '4px', borderRadius: '12px', border: '1px solid #c5c0b1' }}>
-            <button
-              onClick={() => setLayoutMode('split')}
-              style={{
-                border: 'none',
-                background: layoutMode === 'split' ? '#ff4f00' : 'transparent',
-                color: layoutMode === 'split' ? '#fffefb' : '#201515',
-                fontWeight: '600',
-                padding: '6px 14px',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '0.85em',
-                transition: 'background 0.2s'
-              }}
-            >
-              📊 Split View
-            </button>
-            <button
-              onClick={() => setLayoutMode('kanban')}
-              style={{
-                border: 'none',
-                background: layoutMode === 'kanban' ? '#ff4f00' : 'transparent',
-                color: layoutMode === 'kanban' ? '#fffefb' : '#201515',
-                fontWeight: '600',
-                padding: '6px 14px',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '0.85em',
-                transition: 'background 0.2s'
-              }}
-            >
-              📋 Kanban Only
-            </button>
-            <button
-              onClick={() => setLayoutMode('calendar')}
-              style={{
-                border: 'none',
-                background: layoutMode === 'calendar' ? '#ff4f00' : 'transparent',
-                color: layoutMode === 'calendar' ? '#fffefb' : '#201515',
-                fontWeight: '600',
-                padding: '6px 14px',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '0.85em',
-                transition: 'background 0.2s'
-              }}
-            >
-              📅 Calendar Only
-            </button>
-          </div>
-
-          {/* Archives Trigger Button */}
-          <button
-            onClick={() => setIsArchiveDrawerOpen(true)}
-            title="Open Archived Tasks"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              border: '1px solid #c5c0b1',
-              background: '#fffefb',
-              color: '#201515',
-              fontWeight: '700',
-              padding: '6px 14px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontSize: '0.85em',
-              transition: 'all 0.15s ease'
-            }}
+        <div className="seg" role="tablist" aria-label="View">
+          {tabs.map(([key, name]) => (
+            <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setView(key)}>{name}</button>
+          ))}
+        </div>
+        <div className="acts">
+          <Menu
+            button={<><span className={`dot ${projectIndex >= 0 ? `d${projectSlot(projectIndex)}` : 'd0'}`} />{projectIndex >= 0 ? projects[projectIndex].name : 'All projects'}<Icon name="down" /></>}
           >
-            <span>📦 Archives</span>
-            <span
-              style={{
-                background: '#f8f4f0',
-                color: '#605d52',
-                padding: '1px 6px',
-                borderRadius: '8px',
-                fontSize: '0.8em',
-                border: '1px solid #c5c0b1'
-              }}
-            >
-              {archivedTasks.length}
-            </span>
-          </button>
-
-          {/* Auto-Schedule Toggle Button */}
-          <button
-            onClick={() => {
-              const nextState = !autoScheduleEnabled;
-              setAutoScheduleEnabled(nextState);
-              showCalendarAlert(
-                nextState ? '⚡ Auto-Schedule sync enabled!' : '⏸️ Auto-Schedule sync paused.'
-              );
-            }}
-            title={autoScheduleEnabled ? 'Auto-Schedule Active (Click to pause)' : 'Auto-Schedule Paused (Click to enable)'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              border: autoScheduleEnabled ? '1px solid #16a34a' : '1px solid #c5c0b1',
-              background: autoScheduleEnabled ? '#f0fdf4' : '#fffefb',
-              color: autoScheduleEnabled ? '#15803d' : '#605d52',
-              fontWeight: '700',
-              padding: '6px 14px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontSize: '0.85em',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            {autoScheduleEnabled ? '⚡ Auto-Sync: ON' : '⏸️ Auto-Sync: OFF'}
-          </button>
-
-          {/* User profile menu */}
-          {user && <UserMenu user={user} onLogout={handleLogout} />}
+            {(close) => (
+              <>
+                {[{ id: null, name: 'All projects' }, ...projects].map((p, i) => {
+                  const on = p.id == null ? selectedProjectId == null : Number(p.id) === Number(selectedProjectId);
+                  return (
+                    <button key={p.id ?? 'all'} type="button" className={`row${on ? ' is-selected' : ''}`} role="menuitemradio" aria-checked={on} onClick={() => { setSelectedProjectId(p.id); close(); }}>
+                      <span className={`dot ${p.id == null ? 'd0' : `d${projectSlot(i - 1)}`}`} />{p.name}<span className="n">{countFor(p.id)}</span>
+                    </button>
+                  );
+                })}
+                <hr />
+                <button type="button" className="row" role="menuitem" onClick={() => { close(); setIsProjectModalOpen(true); }}>Manage projects</button>
+              </>
+            )}
+          </Menu>
+          {!isPhone && <button type="button" className="btn primary" onClick={() => setAddOpen(true)}><Icon name="plus" />Add task</button>}
+          <Menu buttonClass="btn secondary icon" ariaLabel="More" button={<Icon name="more" />}>
+            {(close) => (
+              <>
+                <button type="button" className="row" role="menuitem" onClick={() => { close(); setIsWipLimitsOpen(true); }}>WIP limits</button>
+                <button type="button" className="row" role="menuitem" onClick={() => { close(); setIsProjectModalOpen(true); }}>Projects</button>
+                <button type="button" className="row" role="menuitem" onClick={() => { close(); setIsArchiveDrawerOpen(true); }}>Archive<span className="n">{archivedTasks.length}</span></button>
+                <button type="button" className="row" role="menuitemcheckbox" aria-checked={autoScheduleEnabled} onClick={() => setAutoScheduleEnabled((on) => !on)}>
+                  Auto-sync<span className="n">{autoScheduleEnabled ? 'On' : 'Off'}</span>
+                </button>
+                {user && (
+                  <>
+                    <hr />
+                    <p className="who">{user.email || user.name}</p>
+                    <button type="button" className="row" role="menuitem" onClick={handleLogout}>Sign out</button>
+                  </>
+                )}
+              </>
+            )}
+          </Menu>
         </div>
       </header>
 
-      {/* Main Workspace */}
-      <main style={{ flex: 1, minHeight: 0, display: 'flex', gap: '20px', alignItems: 'stretch', overflow: 'hidden' }}>
-        {(layoutMode === 'split' || layoutMode === 'kanban') && (
-          <div
-            style={{
-              flex: layoutMode === 'split' ? '0 0 320px' : 1,
-              height: '100%',
-              overflowY: 'auto',
-              paddingRight: '4px'
-            }}
-          >
-            <KanbanBoard
-              tasks={tasks}
-              setTasks={setTasks}
-              columns={columns}
-              setColumns={setColumns}
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              onSelectProject={setSelectedProjectId}
-              onArchive={handleArchiveTask}
-              onEditTask={setEditingTask}
-            />
-          </div>
-        )}
+      <div className="main">
+        {/* Views stay mounted (hidden) so switching keeps their state */}
+        <section className="panel list" aria-label="Tasks" hidden={!show.list}>
+          <DayList
+            tasks={tasks}
+            columns={columns}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onEditTask={setEditingTask}
+            onComplete={handleCompleteTask}
+            onAdd={() => setAddOpen(true)}
+          />
+        </section>
+        <div className="mxp" hidden={!show.matrix}>
+          <MatrixView
+            tasks={tasks}
+            columns={columns}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onReady={requestReady}
+            onEditTask={setEditingTask}
+          />
+        </div>
+        <CalendarGrid
+            tasks={tasks}
+            columns={columns}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onScheduleChange={handleScheduleChange}
+            onEditTask={setEditingTask}
+            hidden={!show.calendar}
+          />
+      </div>
 
-        {(layoutMode === 'split' || layoutMode === 'calendar') && (
-          <div
-            style={{
-              flex: 1,
-              height: '100%',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <CalendarGrid
-              tasks={tasks}
-              columns={columns}
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              onSelectProject={setSelectedProjectId}
-              onScheduleChange={handleScheduleChange}
-              onExternalDrop={handleExternalDrop}
-              onEditTask={setEditingTask}
-            />
+      {isPhone && !addOpen && (
+        <button type="button" className="btn primary phone-add" onClick={() => setAddOpen(true)}><Icon name="plus" />Add task</button>
+      )}
+      {isPhone ? (
+        <BottomSheet open={addOpen} onClose={() => setAddOpen(false)} title="Add task">{addTask}</BottomSheet>
+      ) : addOpen && (
+        <div className="scrim" onClick={() => setAddOpen(false)}>
+          <div className="dlg" role="dialog" aria-modal="true" aria-labelledby="add-title" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === 'Escape' && setAddOpen(false)}>
+            <h2 id="add-title">Add task</h2>
+            {addTask}
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </div>
   );
 }

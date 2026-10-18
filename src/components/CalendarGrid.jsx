@@ -1,32 +1,39 @@
 // src/components/CalendarGrid.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { blocksOf, overlapSuggestion, formatRange } from '../lib/schedule.js';
+import { projectSlot } from '../lib/day-list.js';
+import Icon from './Icon.jsx';
 import '../fullcalendar-theme.css';
 
-function getPriorityClass(task) {
-  const urgency = task.urgency_level || (task.is_urgent ? 4 : 2);
-  const importance = task.importance_level || (task.is_important ? 4 : 2);
-  const score = task.priority_score || (urgency * importance);
-  if (score >= 20) return 'priority-critical';
-  if (score >= 12) return 'priority-high';
-  if (score >= 8) return 'priority-medium';
-  return 'priority-low';
-}
+// Block content: title plus "Project · 09:00 AM - 10:00 AM"
+const renderEvent = (arg) => (
+  <div className="kp-ev">
+    <b>{arg.event.title}</b>
+    <span>{[arg.event.extendedProps.projectName, formatRange(arg.event.start, arg.event.end)].filter(Boolean).join(' · ')}</span>
+  </div>
+);
+
+const dayTitle = (date) => date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
 export default function CalendarGrid({
   tasks,
   columns = [],
   projects = [],
   selectedProjectId = null,
-  onSelectProject,
   onScheduleChange,
-  onExternalDrop,
-  onEditTask
+  onEditTask,
+  hidden = false
 }) {
   const doneCol = columns.find((c) => c.name === 'Done');
+  const runCol = columns.find((c) => c.name.toLowerCase() === 'in progress');
+  const cal = useRef(null);
+  const [title, setTitle] = useState(() => dayTitle(new Date()));
+  // Open an hour before now so the now-line is on screen
+  const [scrollTime] = useState(() => `${String(Math.max(0, new Date().getHours() - 1)).padStart(2, '0')}:00:00`);
 
   // Filter tasks based on selected project
   const filteredTasks = useMemo(() => {
@@ -40,58 +47,41 @@ export default function CalendarGrid({
       .filter((t) => t.schedule_start)
       .map((t) => {
         const isDone = doneCol ? Number(t.column_id) === Number(doneCol.id) : false;
-        const priorityClass = getPriorityClass(t);
-        const project = t.project_id ? projects.find((p) => Number(p.id) === Number(t.project_id)) : null;
+        const isRunning = runCol ? Number(t.column_id) === Number(runCol.id) : false;
+        const pi = projects.findIndex((p) => Number(p.id) === Number(t.project_id));
+        const slot = pi >= 0 ? projectSlot(pi) : 0;
 
         return {
           id: String(t.id),
           title: t.title,
           start: t.schedule_start,
           end: t.schedule_end || undefined,
-          backgroundColor: project?.color ? `${project.color}30` : undefined,
-          borderColor: project?.color || undefined,
-          classNames: [priorityClass, isDone ? 'event-done' : ''],
-          extendedProps: {
-            taskId: t.id,
-            description: t.description,
-            column_id: t.column_id,
-            project_id: t.project_id,
-            priority_score: t.priority_score
-          }
+          classNames: ['ev', isDone ? 'd' : `${isRunning ? 'r' : 's'}${slot}`],
+          extendedProps: { taskId: t.id, projectName: pi >= 0 ? projects[pi].name : null }
         };
       });
-  }, [filteredTasks, doneCol, projects]);
+  }, [filteredTasks, doneCol, runCol, projects]);
 
-  // On-calendar drag to reschedule
-  const handleEventDrop = (info) => {
-    if (!onScheduleChange) return;
-    const taskId = Number(info.event.extendedProps.taskId);
-    const startIso = formatLocalIso(info.event.start);
-    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
-    onScheduleChange(taskId, startIso, endIso);
+  // Overlap: offer the next free slot instead of blocking. `prompt` holds the pending choice.
+  const [prompt, setPrompt] = useState(null);
+  const apply = (taskId, startIso, endIso) => onScheduleChange?.(taskId, startIso, endIso);
+
+  const settle = (taskId, startIso, endIso, revert) => {
+    const hit = overlapSuggestion(blocksOf(tasks, columns), taskId, startIso, endIso);
+    if (!hit) { setPrompt(null); apply(taskId, startIso, endIso); return; }
+    revert();
+    const other = tasks.find((t) => Number(t.id) === Number(hit.with.id));
+    const mine = tasks.find((t) => Number(t.id) === Number(taskId));
+    setPrompt({ taskId, hit, title: mine?.title, other: other?.title, requested: [startIso, endIso] });
   };
 
-  // On-calendar drag to resize duration
-  const handleEventResize = (info) => {
-    if (!onScheduleChange) return;
-    const taskId = Number(info.event.extendedProps.taskId);
-    const startIso = formatLocalIso(info.event.start);
-    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
-    onScheduleChange(taskId, startIso, endIso);
+  const fromInfo = (info) => {
+    const taskId = Number(info.event.extendedProps.taskId || info.event.id);
+    return [taskId, formatLocalIso(info.event.start), info.event.end ? formatLocalIso(info.event.end) : null];
   };
 
-  // External drop from Kanban board
-  const handleEventReceive = (info) => {
-    if (!onExternalDrop) return;
-
-    // Parse data-event JSON from the dragged element
-    const rawData = info.event.extendedProps;
-    const taskId = rawData.taskId || Number(info.event.id);
-    const startIso = formatLocalIso(info.event.start);
-    const endIso = info.event.end ? formatLocalIso(info.event.end) : null;
-
-    onExternalDrop(taskId, startIso, endIso);
-  };
+  // On-calendar drag to reschedule, or resize to change duration
+  const handleEventChange = (info) => settle(...fromInfo(info), info.revert);
 
   // Double-click and double-tap to inspect / edit event
   const handleEventDidMount = (info) => {
@@ -124,130 +114,58 @@ export default function CalendarGrid({
     });
   };
 
-  return (
-    <div
-      style={{
-        background: '#f8f4f0',
-        borderRadius: '12px',
-        border: '1px solid #c5c0b1',
-        padding: '12px',
-        flex: 1,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        boxSizing: 'border-box',
-        minWidth: '320px',
-        overflow: 'hidden'
-      }}
-    >
-      {/* Project Filter Chip Bar */}
-      {projects.length > 0 && onSelectProject && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            overflowX: 'auto',
-            paddingBottom: '8px',
-            marginBottom: '8px',
-            borderBottom: '1px solid #e8e4de',
-            minHeight: '36px'
-          }}
-        >
-          <span style={{ fontSize: '0.75em', fontWeight: '800', color: '#605d52', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: '4px' }}>
-            Filter:
-          </span>
-          <button
-            onClick={() => onSelectProject(null)}
-            style={{
-              padding: '4px 10px',
-              borderRadius: '12px',
-              border: selectedProjectId === null ? '1px solid #ff4f00' : '1px solid #c5c0b1',
-              background: selectedProjectId === null ? '#ff4f00' : '#fffefb',
-              color: selectedProjectId === null ? '#fffefb' : '#201515',
-              fontSize: '0.75em',
-              fontWeight: '700',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            All Projects ({tasks.filter((t) => t.schedule_start).length})
-          </button>
-          {projects.map((p) => {
-            const count = tasks.filter((t) => t.schedule_start && Number(t.project_id) === Number(p.id)).length;
-            const isSelected = Number(selectedProjectId) === Number(p.id);
+  const api = () => cal.current?.getApi();
 
-            return (
-              <button
-                key={p.id}
-                onClick={() => onSelectProject(isSelected ? null : p.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  borderRadius: '12px',
-                  border: isSelected ? `2px solid ${p.color || '#ff4f00'}` : '1px solid #c5c0b1',
-                  background: isSelected ? (p.color || '#ff4f00') : '#fffefb',
-                  color: isSelected ? '#fffefb' : '#201515',
-                  fontSize: '0.75em',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span
-                  style={{
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '50%',
-                    background: isSelected ? '#fffefb' : (p.color || '#ff4f00')
-                  }}
-                />
-                {p.name} ({count})
-              </button>
-            );
-          })}
+  return (
+    <section className="panel cal" aria-label="Day calendar" hidden={hidden}>
+      <div className="calh">
+        <div className="acts">
+          <button type="button" className="btn secondary icon" aria-label="Previous day" onClick={() => api()?.prev()}><Icon name="prev" /></button>
+          <button type="button" className="btn secondary" onClick={() => api()?.today()}>Today</button>
+          <button type="button" className="btn secondary icon" aria-label="Next day" onClick={() => api()?.next()}><Icon name="next" /></button>
+        </div>
+        <span className="t">{title}</span>
+        <span className="calh-end" />
+      </div>
+      {prompt && (
+        <div className="kp-overlap" role="alert">
+          <span>"{prompt.title}" overlaps "{prompt.other}".</span>
+          <button type="button" className="kp-overlap-use" onClick={() => { apply(prompt.taskId, prompt.hit.start, prompt.hit.end); setPrompt(null); }}>{prompt.hit.label}</button>
+          <button type="button" className="kp-overlap-alt" onClick={() => { apply(prompt.taskId, ...prompt.requested); setPrompt(null); }}>Keep both</button>
+          <button type="button" className="kp-overlap-alt" aria-label="Dismiss" onClick={() => setPrompt(null)}>Cancel</button>
         </div>
       )}
+      <div className="calb">
       <FullCalendar
+        ref={cal}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridDay"
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'timeGridDay,timeGridWeek'
-        }}
-        buttonText={{
-          today: 'Today',
-          day: 'Day',
-          week: 'Week'
-        }}
-        slotDuration="00:30:00"
+        headerToolbar={false}
+        dayHeaders={false}
+        slotLabelContent={(arg) => arg.date.toLocaleTimeString('en-US', { hour: 'numeric' })}
+        datesSet={(info) => setTitle(dayTitle(info.start))}
+        slotDuration="01:00:00"
         slotLabelInterval="01:00:00"
         slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
-        scrollTime="08:00:00"
+        scrollTime={scrollTime}
         snapDuration="00:05:00"
         allDaySlot={false}
         height="100%"
-        expandRows={true}
         nowIndicator={true}
         editable={true}
-        droppable={true}
         eventOverlap={true}
         eventDurationEditable={true}
         eventStartEditable={true}
         dayMaxEvents={true}
         events={events}
-        eventDrop={handleEventDrop}
-        eventResize={handleEventResize}
-        eventReceive={handleEventReceive}
+        eventDrop={handleEventChange}
+        eventResize={handleEventChange}
+        eventContent={renderEvent}
         eventDidMount={handleEventDidMount}
       />
-    </div>
+      </div>
+    </section>
   );
 }
 

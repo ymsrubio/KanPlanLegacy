@@ -1,179 +1,92 @@
 // src/components/WipSwapModal.jsx
-import React from 'react';
+// Ready to start is full: pick the task to send back to Backlog. Artboards 8 (desktop) and 5 (phone sheet).
+import React, { useEffect, useState } from 'react';
+import { chipLabel, projectSlot } from '../lib/day-list.js';
+import { useMedia } from '../lib/use-media.js';
+
+const sheetStyle = {
+  width: '100%',
+  maxWidth: 'none',
+  borderRadius: 'var(--r-xl) var(--r-xl) 0 0',
+  borderBottom: 0,
+  padding: 'var(--space-6) var(--space-4)'
+};
 
 export default function WipSwapModal({ isOpen, onClose, onSwap, readyTasks, pendingTask, projects = [] }) {
+  const isPhone = useMedia('(max-width: 640px)');
+  const [pickedId, setPickedId] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  useEffect(() => setPickedId(null), [isOpen, pendingTask?.id]);
+
   if (!isOpen || !pendingTask) return null;
 
+  const outId = readyTasks.some((t) => t.id === pickedId) ? pickedId : readyTasks[0]?.id;
+  const swap = () => outId != null && onSwap(outId);
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 10000,
-        background: 'rgba(32, 21, 21, 0.4)',
-        backdropFilter: 'blur(3px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
-      }}
-      onClick={onClose}
-    >
+    <div className="scrim" style={isPhone ? { alignItems: 'flex-end' } : undefined} onClick={onClose}>
       <div
-        style={{
-          background: '#fffefb',
-          border: '1px solid #c5c0b1',
-          borderRadius: '16px',
-          padding: '28px',
-          width: '100%',
-          maxWidth: '480px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
-          color: '#201515'
-        }}
+        className="dlg"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wip-swap-title"
+        style={isPhone ? sheetStyle : undefined}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.2em', fontWeight: '700', color: '#201515' }}>
-            🔄 Swap Task to Make Room
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.2em',
-              color: '#939084',
-              cursor: 'pointer',
-              padding: '4px'
-            }}
-          >
-            ✕
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <span className="tile" style={{ background: 'var(--warn)', borderColor: 'var(--warn-strong)', color: 'var(--warn-ink)' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <circle cx="8" cy="8" r="5.5" />
+              <path d="M8 5v3.5M8 10.8v.2" />
+            </svg>
+          </span>
+          <h2 id="wip-swap-title">Ready to start is full</h2>
         </div>
-
-        {/* Explanation */}
+        <p style={{ fontSize: 'var(--t-14)', lineHeight: 1.45, color: 'var(--text-2)' }}>
+          Send one task back to Backlog to make room for {pendingTask.title}.
+        </p>
+        <div role="radiogroup" aria-label="Task to send back" style={{ display: 'flex', flexDirection: 'column' }}>
+          {readyTasks.map((task) => {
+            const pi = projects.findIndex((p) => Number(p.id) === Number(task.project_id));
+            const chip = chipLabel(task, pi >= 0 ? projects[pi].name : null);
+            return (
+              <label key={task.id} className="row" style={{ cursor: 'pointer', background: task.id === outId ? 'var(--selected)' : undefined }}>
+                <input
+                  type="radio"
+                  name="wip-swap-out"
+                  checked={task.id === outId}
+                  onChange={() => setPickedId(task.id)}
+                  style={{ margin: 0, width: 'var(--space-5)', height: 'var(--space-5)', accentColor: 'var(--text)', flex: 'none' }}
+                />
+                <span className="ttl" style={{ display: 'flex', alignItems: 'center' }}>{task.title}</span>
+                {chip && <span className={`chip${pi >= 0 ? ` c-${projectSlot(pi)}` : ''}`}>{chip}</span>}
+              </label>
+            );
+          })}
+        </div>
         <div
-          style={{
-            background: '#fff1f2',
-            border: '1px solid #fecdd3',
-            borderRadius: '10px',
-            padding: '12px 16px',
-            marginBottom: '20px',
-            fontSize: '0.85em',
-            color: '#991b1b'
-          }}
+          style={isPhone
+            ? { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }
+            : { display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', flexDirection: 'row' }}
         >
-          <strong>⚠️ Ready to Start is at capacity!</strong>
-          <br />
-          Choose a task below to move back to Backlog, making room for{' '}
-          <strong>"{pendingTask.title}"</strong>.
-        </div>
-
-        {/* Task list to swap */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-          {readyTasks.map((task) => (
-            <button
-              key={task.id}
-              onClick={() => onSwap(task.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                background: '#fffefb',
-                border: '1px solid #c5c0b1',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'border-color 0.15s, background 0.15s',
-                width: '100%'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#ff4f00';
-                e.currentTarget.style.background = '#f8f4f0';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#c5c0b1';
-                e.currentTarget.style.background = '#fffefb';
-              }}
-            >
-              <span style={{ fontSize: '1.2em' }}>↩️</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: '700', fontSize: '0.92em', color: '#201515' }}>
-                    {task.title}
-                  </span>
-                  {task.project_id && (() => {
-                    const proj = projects.find((p) => Number(p.id) === Number(task.project_id));
-                    if (!proj) return null;
-                    return (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '1px 6px',
-                          borderRadius: '8px',
-                          fontSize: '0.72em',
-                          fontWeight: '700',
-                          background: (proj.color || '#ff4f00') + '18',
-                          color: proj.color || '#ff4f00',
-                          border: `1px solid ${(proj.color || '#ff4f00')}40`
-                        }}
-                      >
-                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: proj.color || '#ff4f00' }} />
-                        {proj.name}
-                      </span>
-                    );
-                  })()}
-                </div>
-                {task.description && (
-                  <div style={{ fontSize: '0.78em', color: '#605d52', marginTop: '2px' }}>
-                    {task.description}
-                  </div>
-                )}
-                {task.schedule_start && (
-                  <div style={{ fontSize: '0.75em', color: '#ff4f00', fontWeight: '600', marginTop: '4px' }}>
-                    ⏱️ Scheduled
-                  </div>
-                )}
-              </div>
-              <span
-                style={{
-                  fontSize: '0.75em',
-                  fontWeight: '700',
-                  color: '#ff4f00',
-                  background: '#fff1f2',
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #fecdd3',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Move to Backlog
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Cancel */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: '1px solid #c5c0b1',
-              color: '#36342e',
-              padding: '10px 18px',
-              borderRadius: '10px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontSize: '0.9em'
-            }}
-          >
-            Cancel
-          </button>
+          {isPhone ? (
+            <>
+              <button type="button" className="btn primary" style={{ width: '100%' }} onClick={swap}>Swap and schedule</button>
+              <button type="button" className="btn quiet" style={{ width: '100%' }} onClick={onClose}>Not now</button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn quiet" onClick={onClose}>Not now</button>
+              <button type="button" className="btn primary" onClick={swap}>Swap and schedule</button>
+            </>
+          )}
         </div>
       </div>
     </div>
