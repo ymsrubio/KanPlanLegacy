@@ -99,7 +99,12 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
     }
   };
 
-  const dayName = date ? start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : c.day === 'tomorrow' ? 'Tomorrow' : 'Today';
+  const dayName = date && start ? start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : c.day === 'tomorrow' ? 'Tomorrow' : 'Today';
+  // The free slot can fall on a later day than the start; keep its day, not just its clock.
+  const useFree = () => {
+    if (free.toDateString() !== start.toDateString()) setDate(toIso(free).slice(0, 10));
+    setStartText(formatTime(free));
+  };
   const mark = priorityMark(scoreOf(QUADRANT_LEVELS[c.quadrant]))?.level;
   const canSwap = full;
   const label = !title.trim() || start ? 'Schedule task' : 'Add to Backlog';
@@ -214,7 +219,7 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
                 <Opt className="at-pill" on={false} onClick={() => set({ day: 'today' })}>Add a time</Opt>
               )}
               <div className="at-when-foot">
-                {c.day !== 'none' ? <button type="button" data-opt="" className="btn quiet" onClick={() => { setStartText(null); set({ day: 'none' }); }}>Clear time</button> : <span />}
+                {c.day !== 'none' ? <button type="button" data-opt="" className="btn quiet" onClick={() => { setStartText(null); setDate(null); set({ day: 'none' }); }}>Clear time</button> : <span />}
                 <button type="button" data-opt="" className="btn primary" onClick={close}>Done</button>
               </div>
             </div>
@@ -226,7 +231,7 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
         <div className="at-banner" role="status">
           <span className="tile"><AlertIcon /></span>
           <p>{formatTime(start)} overlaps {hitTask?.title ?? 'another task'} ({formatRange(toIso(hit.start), toIso(hit.end))}).</p>
-          <button type="button" className="btn secondary" onClick={() => setStartText(formatTime(free))}>Use {formatTime(free)}</button>
+          <button type="button" className="btn secondary" onClick={() => useFree()}>Use {formatTime(free)}</button>
         </div>
       )}
       {full && (
