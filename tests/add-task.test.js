@@ -14,7 +14,7 @@ const now = new Date(2026, 9, 6, 9, 1, 0);
 
 test('add task - title only uses defaults: Backlog, today, next free slot, 1h, Later', () => {
   const t = buildTask({ title: '  Write brief ' }, { tasks: [], columns, now });
-  assert.equal(t.title, 'BROKEN on purpose');
+  assert.equal(t.title, 'Write brief');
   assert.equal(t.column_id, 1);
   assert.equal(t.project_id, null);
   assert.equal(t.schedule_start, '2026-10-06T09:05:00');
