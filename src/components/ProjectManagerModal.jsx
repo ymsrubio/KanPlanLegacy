@@ -87,7 +87,7 @@ export default function ProjectManagerModal({ isOpen, onClose, projects, onAddPr
             <span className={`dot d${projectSlot(projects.length)}`} />
             <input
               ref={inputRef}
-              style={error ? { ...inputStyle, borderColor: 'var(--error)' } : inputStyle}
+              style={error ? { ...inputStyle, borderColor: 'var(--error)', outlineColor: 'var(--error)' } : inputStyle}
               placeholder="New project"
               aria-label="New project name"
               aria-invalid={Boolean(error)}
