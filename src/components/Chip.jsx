@@ -1,9 +1,10 @@
 // src/components/Chip.jsx
-// A chip button that opens a small popover. Arrow keys move between [data-opt] controls,
+// A chip button that opens a popover. Arrow keys move between [data-opt] controls,
 // Esc closes, and focus returns to the chip.
 import React, { useEffect, useRef, useState } from 'react';
+import Icon from './Icon.jsx';
 
-export default function Chip({ label, children, ariaLabel }) {
+export default function Chip({ label, children, ariaLabel, popup = 'dialog', role = 'group', tone, width }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
   const pop = useRef(null);
@@ -36,10 +37,10 @@ export default function Chip({ label, children, ariaLabel }) {
 
   return (
     <span className="at-wrap" ref={wrap}>
-      <button type="button" ref={btn} className="at-chip" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        {label}<span aria-hidden="true">▾</span>
+      <button type="button" ref={btn} className={`at-chip${tone ? ` ${tone}` : ''}`} aria-label={ariaLabel} aria-haspopup={popup} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {label}<Icon name="down" />
       </button>
-      {open && <div ref={pop} className="at-pop" role="group" aria-label={ariaLabel} onKeyDown={onKeyDown}>{children(close)}</div>}
+      {open && <div ref={pop} className="at-pop" style={width ? { '--w': `${width}px` } : undefined} role={role} aria-label={ariaLabel} onKeyDown={onKeyDown}>{children(close)}</div>}
     </span>
   );
 }
