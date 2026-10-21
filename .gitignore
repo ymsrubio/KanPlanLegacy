@@ -15,4 +15,5 @@ RESOURCES.md
 NOTES.md
 lessons/
 learning-records/
-reference/.claude/launch.json
+reference/
+.claude/launch.json
