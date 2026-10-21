@@ -7,9 +7,7 @@ node_modules/
 .agents/
 .scratch/
 .wrangler/
-AGENTS.md
 skills-lock.json
-docs/agents/
 
 # Teaching & Learning Artifacts (local only)
 MISSION.md
