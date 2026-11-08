@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTask, nameTaken, LENGTHS, whenLabel } from '../src/lib/add-task.js';
+import { buildTask, nameTaken, LENGTHS, whenLabel, parseClock, resolveStart, addLabel, DEFAULT_CHOICES } from '../src/lib/add-task.js';
 import { buildDayList } from '../src/lib/day-list.js';
 import { quadrantOf, QUADRANT_ORDER } from '../src/lib/priority.js';
 
@@ -12,19 +12,26 @@ const columns = [
 ];
 const now = new Date(2026, 9, 6, 9, 1, 0);
 
-test('add task - title only uses defaults: Backlog, today, next free slot, 1h, Later', () => {
+test('add task - title only uses defaults: Backlog, no time, Later (issue 99)', () => {
+  assert.equal(DEFAULT_CHOICES.day, 'none');
   const t = buildTask({ title: '  Write brief ' }, { tasks: [], columns, now });
   assert.equal(t.title, 'Write brief');
   assert.equal(t.column_id, 1);
   assert.equal(t.project_id, null);
-  assert.equal(t.schedule_start, '2026-10-06T09:05:00');
-  assert.equal(t.schedule_end, '2026-10-06T10:05:00');
+  assert.equal(t.schedule_start, null);
+  assert.equal(t.schedule_end, null);
   assert.equal(quadrantOf(t), 'later');
 });
 
-test('add task - default slot steps over existing blocks', () => {
+test('add task - adding a time today takes the next free slot, 1h', () => {
+  const t = buildTask({ title: 'x', day: 'today' }, { tasks: [], columns, now });
+  assert.equal(t.schedule_start, '2026-10-06T09:05:00');
+  assert.equal(t.schedule_end, '2026-10-06T10:05:00');
+});
+
+test('add task - today slot steps over existing blocks', () => {
   const tasks = [{ id: 1, column_id: 1, schedule_start: '2026-10-06T09:00:00', schedule_end: '2026-10-06T11:00:00' }];
-  assert.equal(buildTask({ title: 'x' }, { tasks, columns, now }).schedule_start, '2026-10-06T11:00:00');
+  assert.equal(buildTask({ title: 'x', day: 'today' }, { tasks, columns, now }).schedule_start, '2026-10-06T11:00:00');
 });
 
 test('add task - every priority choice round-trips through quadrantOf', () => {
@@ -67,4 +74,28 @@ test('add task - nameTaken is trimmed and case-insensitive', () => {
 test('add task - when label reads naturally', () => {
   assert.equal(whenLabel('today', 60, new Date(2026, 9, 6, 14, 0)), 'Today 2:00 PM · 1h');
   assert.equal(whenLabel('none', 60), 'No time');
+});
+
+test('parseClock - reads 12h and 24h clocks, rejects junk', () => {
+  assert.equal(parseClock('2:00 PM'), 14 * 60);
+  assert.equal(parseClock('2pm'), 14 * 60);
+  assert.equal(parseClock('14:30'), 14 * 60 + 30);
+  assert.equal(parseClock('12 am'), 0);
+  assert.equal(parseClock('13pm'), null);
+  assert.equal(parseClock('soon'), null);
+});
+
+test('resolveStart - no time, next free slot, picked date and typed clock', () => {
+  const ctx = { tasks: [], columns, now };
+  assert.equal(resolveStart({ day: 'none', minutes: 60 }, ctx), null);
+  assert.equal(resolveStart({ day: 'today', minutes: 60 }, ctx).getTime(), new Date(2026, 9, 6, 9, 5).getTime());
+  assert.equal(resolveStart({ day: 'today', date: '2026-10-09', minutes: 60 }, ctx).getTime(), new Date(2026, 9, 9, 9, 0).getTime());
+  assert.equal(resolveStart({ day: 'tomorrow', minutes: 60, startText: '3:30 PM' }, ctx).getTime(), new Date(2026, 9, 7, 15, 30).getTime());
+  // An unreadable clock keeps the free slot.
+  assert.equal(resolveStart({ day: 'today', minutes: 60, startText: 'later' }, ctx).getTime(), new Date(2026, 9, 6, 9, 5).getTime());
+});
+
+test('add task - button label follows the schedule, not the title (issue 99)', () => {
+  assert.equal(addLabel(null), 'Add to Backlog');
+  assert.equal(addLabel(new Date(2026, 9, 6, 9, 0)), 'Schedule task');
 });
