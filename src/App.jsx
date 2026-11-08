@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CalendarGrid from './components/CalendarGrid.jsx';
 import WipSwapModal from './components/WipSwapModal.jsx';
+import ReadyTimeDialog from './components/ReadyTimeDialog.jsx';
 import WipLimitsDialog from './components/WipLimitsDialog.jsx';
 import { settleLimitSaves } from './lib/wip-limits.js';
 import LoginPage from './components/LoginPage.jsx';
@@ -20,6 +21,7 @@ import { processAutoTransitions } from './lib/auto-scheduler.js';
 import { processAutoArchiving } from './lib/auto-archiver.js';
 import { getTodayDateString, hasDateChanged } from './lib/time-utils.js';
 import { readyPlan, swapUpdates, applyUpdates } from './lib/wip-swap.js';
+import { needsTime } from './lib/ready-time.js';
 
 export default function App() {
   // Auth state
@@ -43,6 +45,8 @@ export default function App() {
 
   // WIP swap modal state
   const [wipSwapState, setWipSwapState] = useState(null);
+  // Task waiting for a time before it moves into Ready to start (issue 99)
+  const [readyTimeTask, setReadyTimeTask] = useState(null);
   const [calendarAlert, setCalendarAlert] = useState(null);
 
   const showCalendarAlert = (msg) => {
@@ -369,9 +373,14 @@ export default function App() {
   };
 
   // Move a task into Ready to start; offer a swap instead of an error when it is full.
-  const requestReady = async (task, patch = {}) => {
+  // A task with no time is asked for one first; the chosen schedule rides along in `patch`.
+  const requestReady = async (task, patch = {}, { askTime = true } = {}) => {
     const plan = readyPlan(tasks, columns, task);
     if (!plan.ready) return;
+    if (askTime && needsTime(task, patch)) {
+      setReadyTimeTask(task);
+      return;
+    }
     if (plan.full) {
       setWipSwapState({ pendingTask: task, patch, readyTasks: plan.candidates });
       return;
@@ -507,6 +516,17 @@ export default function App() {
         readyTasks={wipSwapState?.readyTasks || []}
         pendingTask={wipSwapState?.pendingTask}
         projects={projects}
+      />
+      <ReadyTimeDialog
+        task={readyTimeTask}
+        tasks={tasks}
+        columns={columns}
+        onClose={() => setReadyTimeTask(null)}
+        onMove={(patch) => {
+          const task = readyTimeTask;
+          setReadyTimeTask(null);
+          requestReady(task, patch, { askTime: false });
+        }}
       />
       <WipLimitsDialog
         isOpen={isWipLimitsOpen}

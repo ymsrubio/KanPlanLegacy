@@ -9,7 +9,7 @@ import '../workspace.css';
 const GROUP_ICON = { inProgress: 'running', ready: 'clock', backlog: 'lines', done: 'done' };
 
 const EMPTY = {
-  empty: ['Nothing planned yet', 'Add a task, then give it a time. It moves to Ready to start on its own.'],
+  empty: ['Nothing planned yet', 'Add a task. Give it a time when you move it to Ready to start.'],
   filtered: ['No tasks in this project', 'Choose another project to see more.']
 };
 
