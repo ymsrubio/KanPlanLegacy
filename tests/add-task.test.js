@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTask, nameTaken, LENGTHS, whenLabel, parseClock, resolveStart, DEFAULT_CHOICES } from '../src/lib/add-task.js';
+import { buildTask, nameTaken, LENGTHS, whenLabel, parseClock, resolveStart, addLabel, DEFAULT_CHOICES } from '../src/lib/add-task.js';
 import { buildDayList } from '../src/lib/day-list.js';
 import { quadrantOf, QUADRANT_ORDER } from '../src/lib/priority.js';
 
@@ -93,4 +93,9 @@ test('resolveStart - no time, next free slot, picked date and typed clock', () =
   assert.equal(resolveStart({ day: 'tomorrow', minutes: 60, startText: '3:30 PM' }, ctx).getTime(), new Date(2026, 9, 7, 15, 30).getTime());
   // An unreadable clock keeps the free slot.
   assert.equal(resolveStart({ day: 'today', minutes: 60, startText: 'later' }, ctx).getTime(), new Date(2026, 9, 6, 9, 5).getTime());
+});
+
+test('add task - button label follows the schedule, not the title (issue 99)', () => {
+  assert.equal(addLabel(null), 'Add to Backlog');
+  assert.equal(addLabel(new Date(2026, 9, 6, 9, 0)), 'Schedule task');
 });

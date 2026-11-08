@@ -6,7 +6,7 @@ import Icon from './Icon.jsx';
 import WhenFields, { AlertIcon, CalendarIcon, Opt } from './WhenFields.jsx';
 import { projectColor, projectSlot, priorityMark } from '../lib/day-list.js';
 import { QUADRANT_ORDER, QUADRANT_LABEL, QUADRANT_HINT, QUADRANT_LEVELS, scoreOf } from '../lib/priority.js';
-import { DEFAULT_CHOICES, buildTask, lengthLabel, nameTaken, resolveStart } from '../lib/add-task.js';
+import { DEFAULT_CHOICES, addLabel, buildTask, lengthLabel, nameTaken, resolveStart } from '../lib/add-task.js';
 import { blocksOf, findOverlap, formatRange, formatTime, nextFreeSlot, toIso } from '../lib/schedule.js';
 import { readyPlan } from '../lib/wip-swap.js';
 import '../add-task.css';
@@ -70,7 +70,6 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
   };
   const mark = priorityMark(scoreOf(QUADRANT_LEVELS[c.quadrant]))?.level;
   const canSwap = full;
-  const label = !title.trim() || start ? 'Schedule task' : 'Add to Backlog';
 
   return (
     <div className="at">
@@ -169,7 +168,7 @@ export default function AddTask({ tasks, columns, projects, defaultProjectId = n
 
       <div className="at-foot">
         <button type="button" className="btn quiet" onClick={() => onDone?.()}>Cancel</button>
-        <button type="button" className="btn primary" disabled={!title.trim()} onClick={() => submit(canSwap)}>{canSwap ? 'Swap and schedule' : label}</button>
+        <button type="button" className="btn primary" disabled={!title.trim()} onClick={() => submit(canSwap)}>{canSwap ? 'Swap and schedule' : addLabel(start)}</button>
       </div>
     </div>
   );

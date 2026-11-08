@@ -45,6 +45,9 @@ export function resolveStart({ day, date = null, minutes, startText = null }, ct
   return start;
 }
 
+// The primary button names what will happen: a start schedules, no start goes to Backlog.
+export const addLabel = (start) => (start ? 'Schedule task' : 'Add to Backlog');
+
 export function whenLabel(day, minutes, start) {
   if (day === 'none' || !start) return 'No time';
   return `${day === 'tomorrow' ? 'Tomorrow' : 'Today'} ${formatTime(start)} · ${lengthLabel(minutes)}`;
